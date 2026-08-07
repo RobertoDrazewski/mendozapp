@@ -16,7 +16,7 @@ export default function Header() {
   return (
     <header className="safe-top relative z-[1200] bg-gradient-to-b from-malbec to-malbec-deep text-stone px-4 pt-3 pb-3 flex items-center justify-between shadow-lg">
       <div className="flex flex-col leading-none">
-        <img src={logo} alt="Mendozapp" className="h-8 w-auto object-contain object-left" />
+        <img src={logo} alt="Mendozapp" className="h-16 w-auto object-contain object-left" />
         <div className="text-[10px] tracking-[2px] uppercase opacity-65 mt-1">{t.tagline}</div>
       </div>
 

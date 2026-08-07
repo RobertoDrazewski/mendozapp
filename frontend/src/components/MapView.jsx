@@ -17,9 +17,10 @@ const ICONS = { monumento: '🗿', plaza: '🌳', historia: '⛪', mirador: '⛰
 const COMERCIO_ICONS = { bodega: '🍇', restaurante: '🍽️', comercio: '🛍️', hotel: '🏨', turismo_aventura: '🥾', otro: '📍' };
 
 const STREETS_LAYER = () =>
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     maxZoom: 19,
-    attribution: '&copy; OpenStreetMap',
+    subdomains: 'abcd',
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
   });
 
 const SATELLITE_LAYER = () =>

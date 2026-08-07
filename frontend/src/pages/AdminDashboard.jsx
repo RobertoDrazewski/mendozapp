@@ -33,6 +33,10 @@ const EMPTY_BANNER = {
 };
 
 const POI_TIPOS = ['monumento', 'plaza', 'historia', 'mirador', 'museo', 'iglesia', 'emergencia', 'otro'];
+const POI_TIPO_ICON = {
+  monumento: '🗿', plaza: '🌳', historia: '⛪', mirador: '⛰️',
+  museo: '🏛️', iglesia: '⛪', emergencia: '🚨', otro: '📍',
+};
 const POI_ICONOS = [
   '📍', '🗿', '🌳', '⛪', '⛰️', '🏛️', '🍷', '🏞️',
   '🚨', '👮', '🚑', '🚒', // emergencias
@@ -57,6 +61,7 @@ export default function AdminDashboard() {
   const [comercioForm, setComercioForm] = useState(EMPTY_COMERCIO);
 
   const [showPoiForm, setShowPoiForm] = useState(false);
+  const [expandedCats, setExpandedCats] = useState({});
   const [editingPoi, setEditingPoi] = useState(null);
   const [poiForm, setPoiForm] = useState(EMPTY_POI);
 
@@ -244,32 +249,73 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* TAB ESPACIOS PÚBLICOS */}
+      {/* TAB ESPACIOS PÚBLICOS - agrupados por categoría para revisar más fácil */}
       {tab === 'pois' && (
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2.5">
           <button onClick={openNewPoi} className="w-full bg-sun text-malbec-deep font-bold py-3 rounded-xl text-sm mb-2">
             + Nuevo espacio público (gratis, sin suscripción)
           </button>
-          {pois.map((p) => (
-            <div key={p.id} className="bg-white rounded-2xl p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex items-center gap-2">
-                  <span className="text-lg flex-shrink-0">{p.icono}</span>
-                  <div className="min-w-0">
-                    <div className="font-bold text-sm truncate">{p.nombre_es}</div>
-                    <div className="text-xs text-ink-soft">{p.tipo} · {p.lat}, {p.lng}</div>
+
+          <div className="flex gap-2 mb-2">
+            <button
+              onClick={() => setExpandedCats(Object.fromEntries(POI_TIPOS.map((t) => [t, true])))}
+              className="flex-1 text-xs font-bold bg-stone text-ink py-2 rounded-lg"
+            >
+              Expandir todo
+            </button>
+            <button
+              onClick={() => setExpandedCats({})}
+              className="flex-1 text-xs font-bold bg-stone text-ink py-2 rounded-lg"
+            >
+              Colapsar todo
+            </button>
+          </div>
+
+          {POI_TIPOS.map((tipo) => {
+            const grupo = pois.filter((p) => p.tipo === tipo);
+            if (grupo.length === 0) return null;
+            const isOpen = !!expandedCats[tipo];
+            return (
+              <div key={tipo} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                <button
+                  onClick={() => setExpandedCats((prev) => ({ ...prev, [tipo]: !prev[tipo] }))}
+                  className="w-full flex items-center justify-between p-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{POI_TIPO_ICON[tipo] || '📍'}</span>
+                    <span className="font-bold text-sm capitalize">{tipo}</span>
+                    <span className="text-[10px] bg-stone text-ink-soft font-bold px-2 py-0.5 rounded-full">{grupo.length}</span>
                   </div>
-                </div>
-                <span className={`text-[10px] font-bold px-2 py-1 rounded-full flex-shrink-0 ${p.activo ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}`}>
-                  {p.activo ? 'visible' : 'oculto'}
-                </span>
+                  <span className="text-ink-soft text-sm">{isOpen ? '▲' : '▼'}</span>
+                </button>
+
+                {isOpen && (
+                  <div className="px-4 pb-4 space-y-2.5">
+                    {grupo.map((p) => (
+                      <div key={p.id} className="bg-stone rounded-xl p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex items-center gap-2">
+                            <span className="text-base flex-shrink-0">{p.icono}</span>
+                            <div className="min-w-0">
+                              <div className="font-bold text-sm truncate">{p.nombre_es}</div>
+                              <div className="text-[11px] text-ink-soft">{p.lat}, {p.lng}</div>
+                            </div>
+                          </div>
+                          <span className={`text-[10px] font-bold px-2 py-1 rounded-full flex-shrink-0 ${p.activo ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}`}>
+                            {p.activo ? 'visible' : 'oculto'}
+                          </span>
+                        </div>
+                        <div className="flex gap-2 mt-2.5">
+                          <button onClick={() => openEditPoi(p)} className="flex-1 text-xs font-bold bg-white text-ink py-2 rounded-lg">Editar</button>
+                          <button onClick={() => deletePoi(p.id, p.nombre_es)} className="flex-1 text-xs font-bold bg-red-50 text-red-600 py-2 rounded-lg">Eliminar</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="flex gap-2 mt-3">
-                <button onClick={() => openEditPoi(p)} className="flex-1 text-xs font-bold bg-stone text-ink py-2 rounded-lg">Editar</button>
-                <button onClick={() => deletePoi(p.id, p.nombre_es)} className="flex-1 text-xs font-bold bg-red-50 text-red-600 py-2 rounded-lg">Eliminar</button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {pois.length === 0 && <div className="text-center text-ink-soft text-sm mt-8">Todavía no hay espacios públicos cargados.</div>}
         </div>
       )}

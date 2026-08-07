@@ -6,6 +6,21 @@
 html, body, #root { height: 100%; margin: 0; overscroll-behavior: none; }
 body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #241B1E; }
 
+/* iOS en modo standalone (agregado a pantalla de inicio) no calcula bien 100vh.
+   Usamos 100dvh (dynamic viewport height) con fallback a 100vh para navegadores viejos. */
+.app-height {
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* Respeta el notch/Dynamic Island arriba y la barra de gestos abajo */
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 .leaflet-control-attribution { font-size: 9px !important; }
 
 @keyframes pulse {

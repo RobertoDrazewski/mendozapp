@@ -13,7 +13,7 @@ const items = [
 export default function BottomNav() {
   const { t } = useLang();
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-[1100] bg-paper border-t border-black/10 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]">
+    <nav className="safe-bottom fixed bottom-0 left-0 right-0 z-[1100] bg-paper border-t border-black/10 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]">
       <div className="max-w-[520px] mx-auto grid grid-cols-5">
         {items.map((item) => (
           <NavLink

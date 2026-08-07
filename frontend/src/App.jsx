@@ -17,7 +17,7 @@ function Layout() {
   const isAdminRoute = location.pathname.startsWith('/admin');
 
   return (
-    <div className="h-screen w-screen max-w-[520px] mx-auto flex flex-col bg-stone overflow-hidden">
+    <div className="app-height w-screen max-w-[520px] mx-auto flex flex-col bg-stone overflow-hidden">
       <div className="flex-1 min-h-0 flex flex-col">
         <Routes>
           <Route path="/" element={<Home />} />

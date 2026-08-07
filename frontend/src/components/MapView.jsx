@@ -53,10 +53,23 @@ export default function MapView({ onSelectPlace }) {
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     mapInstance.current = map;
 
+    // Salvaguarda: en iOS modo standalone a veces el contenedor arranca con
+    // altura 0 antes de que el navegador resuelva el alto real de pantalla.
+    // Forzamos a Leaflet a recalcular su tamaño una vez que el layout ya asentó.
+    requestAnimationFrame(() => map.invalidateSize());
+    setTimeout(() => map.invalidateSize(), 300);
+    setTimeout(() => map.invalidateSize(), 1000);
+
+    const handleResize = () => map.invalidateSize();
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+
     loadPlaces(map);
     locate(map);
 
     return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
       map.remove();
       mapInstance.current = null;
     };

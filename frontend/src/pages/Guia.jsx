@@ -4,20 +4,25 @@ import { useLang } from '../i18n/LangContext';
 import { api } from '../api';
 
 const INTERESES = [
-  { key: 'Vino', icon: '🍷' },
-  { key: 'Historia', icon: '🏛️' },
-  { key: 'Trekking', icon: '🥾' },
-  { key: 'Gastronomía', icon: '🍽️' },
-  { key: 'Familia', icon: '👨‍👩‍👧' },
-  { key: 'Relax', icon: '🧘' },
-  { key: 'Clubes y remo', icon: '🚣' },
-  { key: '4x4', icon: '🚙' },
-  { key: 'Mountain bike', icon: '🚵' },
-  { key: 'Motocross / Enduro', icon: '🏍️' },
-  { key: 'Ciclismo', icon: '🚴' },
-  { key: 'Deportes acuáticos', icon: '🏄' },
-  { key: 'Espectáculos', icon: '🎭' },
+  { key: 'vino', icon: '🍷', label: { es: 'Vino', en: 'Wine', pt: 'Vinho' } },
+  { key: 'historia', icon: '🏛️', label: { es: 'Historia', en: 'History', pt: 'História' } },
+  { key: 'trekking', icon: '🥾', label: { es: 'Trekking', en: 'Trekking', pt: 'Trekking' } },
+  { key: 'gastronomia', icon: '🍽️', label: { es: 'Gastronomía', en: 'Food', pt: 'Gastronomia' } },
+  { key: 'familia', icon: '👨‍👩‍👧', label: { es: 'Familia', en: 'Family', pt: 'Família' } },
+  { key: 'relax', icon: '🧘', label: { es: 'Relax', en: 'Relax', pt: 'Relax' } },
+  { key: 'clubes', icon: '🚣', label: { es: 'Clubes y remo', en: 'Rowing clubs', pt: 'Clubes e remo' } },
+  { key: '4x4', icon: '🚙', label: { es: '4x4', en: '4x4', pt: '4x4' } },
+  { key: 'mtb', icon: '🚵', label: { es: 'Mountain bike', en: 'Mountain biking', pt: 'Mountain bike' } },
+  { key: 'moto', icon: '🏍️', label: { es: 'Motocross / Enduro', en: 'Motocross / Enduro', pt: 'Motocross / Enduro' } },
+  { key: 'ciclismo', icon: '🚴', label: { es: 'Ciclismo', en: 'Cycling', pt: 'Ciclismo' } },
+  { key: 'acuaticos', icon: '🏄', label: { es: 'Deportes acuáticos', en: 'Water sports', pt: 'Esportes aquáticos' } },
+  { key: 'espectaculos', icon: '🎭', label: { es: 'Espectáculos', en: 'Shows & events', pt: 'Espetáculos' } },
 ];
+
+function labelFor(key, lang) {
+  const found = INTERESES.find((i) => i.key === key);
+  return found ? found.label[lang] : key;
+}
 
 const STORAGE_KEY = 'mendozapp_itinerarios';
 
@@ -41,8 +46,8 @@ export default function Guia() {
   const [historial, setHistorial] = useState(loadHistorial);
   const progressTimer = useRef(null);
 
-  function toggleInteres(i) {
-    setIntereses((prev) => (prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]));
+  function toggleInteres(key) {
+    setIntereses((prev) => (prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key]));
   }
 
   function startFakeProgress() {
@@ -70,11 +75,12 @@ export default function Guia() {
     setLoading(true);
     startFakeProgress();
     try {
+      const interesesTexto = intereses.map((k) => labelFor(k, lang)).join(', ');
       const agrupar = dias > 4
         ? ' Como es una estadía larga, agrupá los días por zona geográfica (ej: Ciudad + Godoy Cruz, después Maipú, después Luján de Cuyo / Valle de Uco, después alta montaña) para no cruzar la provincia de un lado a otro cada día.'
         : '';
       const mensaje = `Armá un itinerario de ${dias} día(s) en Mendoza (ciudad y provincia) para alguien interesado en: ${
-        intereses.join(', ') || 'lo más representativo de la zona'
+        interesesTexto || 'lo más representativo de la zona'
       }. Organizalo día por día, con horarios sugeridos.${agrupar} Priorizá los comercios/bodegas reales de Mendozapp cuando existan opciones cargadas, y completá con lugares públicos, miradores o zonas de trekking reales de la provincia cuando haga falta.`;
       const { respuesta } = await api.chat({ mensaje, idioma: lang });
 
@@ -84,7 +90,7 @@ export default function Guia() {
         id: Date.now(),
         createdAt: new Date().toISOString(),
         dias,
-        intereses: [...intereses],
+        intereses: [...intereses], // guardamos las keys, no el texto, así se puede traducir después
         lines,
         checked: lines.map(() => false),
       };
@@ -182,7 +188,7 @@ export default function Guia() {
                 }`}
               >
                 <span className="text-xl">{int.icon}</span>
-                <span className="text-[11px] font-bold">{int.key}</span>
+                <span className="text-[11px] font-bold text-center leading-tight">{int.label[lang]}</span>
               </button>
             );
           })}
@@ -214,12 +220,13 @@ export default function Guia() {
                   lang === 'es' ? 'es-AR' : lang === 'pt' ? 'pt-BR' : 'en-US',
                   { day: 'numeric', month: 'short' }
                 );
+                const interesesTexto = entry.intereses.map((k) => labelFor(k, lang)).join(', ');
                 return (
                   <div key={entry.id} className="bg-white rounded-2xl p-4 shadow-sm">
                     <div className="flex items-start justify-between gap-2 mb-3">
                       <div className="min-w-0">
                         <div className="text-sm font-bold">
-                          {entry.dias} día{entry.dias > 1 ? 's' : ''} · {entry.intereses.join(', ') || 'General'}
+                          {entry.dias} día{entry.dias > 1 ? 's' : ''} · {interesesTexto || 'General'}
                         </div>
                         <div className="text-[11px] text-ink-soft mt-0.5">{fecha}</div>
                       </div>

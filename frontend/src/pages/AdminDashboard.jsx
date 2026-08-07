@@ -32,8 +32,15 @@ const EMPTY_BANNER = {
   texto_es: '', texto_en: '', texto_pt: '', link: '', color_fondo: '#6B1E3C', activo: true, orden: 0,
 };
 
-const POI_TIPOS = ['monumento', 'plaza', 'historia', 'mirador', 'museo', 'iglesia', 'otro'];
-const POI_ICONOS = ['📍', '🗿', '🌳', '⛪', '⛰️', '🏛️', '🍷', '🏞️'];
+const POI_TIPOS = ['monumento', 'plaza', 'historia', 'mirador', 'museo', 'iglesia', 'emergencia', 'otro'];
+const POI_ICONOS = [
+  '📍', '🗿', '🌳', '⛪', '⛰️', '🏛️', '🍷', '🏞️',
+  '🚨', '👮', '🚑', '🚒', // emergencias
+  '🏨', '✝️', '💎', '🎖️', '🐎', '⛲', // monumentos e historia
+  '🦇', '🕳️', '🎣', '🍎', // naturaleza
+  '🦴', '🏺', '🖼️', '🏍️', // museos
+  '🏄', '🚣', '🎭', '🥾', // deportes/aventura
+];
 
 export default function AdminDashboard() {
   const { t } = useLang();

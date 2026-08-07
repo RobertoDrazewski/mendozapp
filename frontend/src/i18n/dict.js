@@ -62,6 +62,7 @@ export const dict = {
     cat_historia: 'Historia',
     cat_mirador: 'Miradores',
     cat_museo: 'Museos',
+    cat_emergencia: 'Emergencias',
     go_empty: 'No hay lugares cargados todavía.',
     go_empty_category: 'No hay lugares en esta categoría.',
   },
@@ -128,6 +129,7 @@ export const dict = {
     cat_historia: 'History',
     cat_mirador: 'Viewpoints',
     cat_museo: 'Museums',
+    cat_emergencia: 'Emergencies',
     go_empty: 'No places loaded yet.',
     go_empty_category: 'No places in this category.',
   },
@@ -194,6 +196,7 @@ export const dict = {
     cat_historia: 'História',
     cat_mirador: 'Mirantes',
     cat_museo: 'Museus',
+    cat_emergencia: 'Emergências',
     go_empty: 'Ainda não há lugares cadastrados.',
     go_empty_category: 'Não há lugares nesta categoria.',
   }

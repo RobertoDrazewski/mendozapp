@@ -14,6 +14,7 @@ const CATS = [
   { key: 'historia', icon: '⛪', kind: 'poi' },
   { key: 'mirador', icon: '⛰️', kind: 'poi' },
   { key: 'museo', icon: '🏛️', kind: 'poi' },
+  { key: 'emergencia', icon: '🚨', kind: 'poi' },
 ];
 
 export default function ComoLlegar() {

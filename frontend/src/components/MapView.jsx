@@ -43,6 +43,7 @@ export default function MapView({ onSelectPlace }) {
   const [statusVisible, setStatusVisible] = useState(true);
   const visitedProximity = useRef(new Set());
   const [proximityAlert, setProximityAlert] = useState(null);
+  const [debugInfo, setDebugInfo] = useState('Iniciando mapa...');
 
   useEffect(() => {
     if (mapInstance.current) return;
@@ -50,6 +51,25 @@ export default function MapView({ onSelectPlace }) {
 
     streetsLayerRef.current = STREETS_LAYER().addTo(map);
     satelliteLayerRef.current = SATELLITE_LAYER();
+
+    // DIAGNÓSTICO TEMPORAL: muestra en pantalla qué está pasando con los tiles
+    let loaded = 0;
+    let errored = 0;
+    streetsLayerRef.current.on('loading', () => setDebugInfo('Pidiendo tiles al servidor...'));
+    streetsLayerRef.current.on('tileload', () => {
+      loaded++;
+      setDebugInfo(`Tiles OK: ${loaded} cargados, ${errored} con error`);
+    });
+    streetsLayerRef.current.on('tileerror', (e) => {
+      errored++;
+      setDebugInfo(`❌ Error cargando tile. OK: ${loaded}, Error: ${errored}. URL: ${e.tile?.src?.slice(0, 60)}`);
+    });
+    streetsLayerRef.current.on('load', () => setDebugInfo(`✅ Capa cargada. Total OK: ${loaded}, Error: ${errored}`));
+
+    setTimeout(() => {
+      const rect = mapRef.current?.getBoundingClientRect();
+      setDebugInfo((prev) => `${prev} | Contenedor: ${Math.round(rect?.width)}x${Math.round(rect?.height)}px`);
+    }, 2000);
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     mapInstance.current = map;
@@ -185,6 +205,11 @@ export default function MapView({ onSelectPlace }) {
   return (
     <div className="relative flex-1 min-h-0">
       <div ref={mapRef} className="absolute inset-0" />
+
+      {/* DIAGNÓSTICO TEMPORAL - sacar una vez resuelto el problema del mapa en iOS */}
+      <div className="absolute top-16 left-2 right-2 z-[900] bg-black/90 text-lime-300 text-[10px] font-mono p-2 rounded-lg break-words">
+        {debugInfo}
+      </div>
 
       {/* Status pill */}
       {statusVisible && (

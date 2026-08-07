@@ -67,7 +67,7 @@ export default function Chat() {
         )}
       </div>
 
-      <div className="px-4 py-3 pb-20 bg-paper border-t border-black/5 flex gap-2">
+      <div className="px-4 py-3 bg-paper border-t border-black/5 flex gap-2 flex-shrink-0">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -83,6 +83,7 @@ export default function Chat() {
           {t.chat_send}
         </button>
       </div>
+      <div className="bottomnav-space bg-paper" />
     </div>
   );
 }

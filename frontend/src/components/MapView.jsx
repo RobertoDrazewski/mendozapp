@@ -13,6 +13,54 @@ function distMeters(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// Rumbo (bearing) en grados desde el usuario hacia el lugar, 0-360 (0 = norte)
+function bearingTo(lat1, lng1, lat2, lng2) {
+  const toRad = (d) => (d * Math.PI) / 180;
+  const toDeg = (r) => (r * 180) / Math.PI;
+  const dLng = toRad(lng2 - lng1);
+  const y = Math.sin(dLng) * Math.cos(toRad(lat2));
+  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLng);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
+// Compara hacia dónde vas (heading del GPS) contra el rumbo al lugar, y devuelve
+// "adelante" / "derecha" / "atrás" / "izquierda". Si no tenemos heading (parado
+// quieto, o el dispositivo no lo reporta), devuelve null y no decimos de qué lado.
+function relativeDirection(userHeading, placeBearing) {
+  if (userHeading === null || userHeading === undefined || isNaN(userHeading)) return null;
+  const diff = ((placeBearing - userHeading) + 360) % 360;
+  if (diff < 25 || diff > 335) return 'adelante';
+  if (diff >= 25 && diff <= 155) return 'derecha';
+  if (diff > 155 && diff < 205) return 'atrás';
+  return 'izquierda';
+}
+
+const DIRECTION_LABEL = {
+  es: { adelante: 'Adelante tuyo', derecha: 'A tu derecha', atrás: 'Atrás tuyo', izquierda: 'A tu izquierda' },
+  en: { adelante: 'Straight ahead', derecha: 'On your right', atrás: 'Behind you', izquierda: 'On your left' },
+  pt: { adelante: 'À sua frente', derecha: 'À sua direita', atrás: 'Atrás de você', izquierda: 'À sua esquerda' },
+};
+
+// Vibración + sonido corto tipo "alarma", para que la notificación se sienta
+// distinta a un cartelito más y capte la atención sin ser invasiva.
+function alertBuzz() {
+  if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.3);
+  } catch (e) {
+    // Si el navegador bloquea audio sin interacción previa, no pasa nada, seguimos sin sonido
+  }
+}
+
 const ICONS = { monumento: '🗿', plaza: '🌳', historia: '⛪', mirador: '⛰️', museo: '🏛️', iglesia: '⛪', otro: '📍' };
 const COMERCIO_ICONS = { bodega: '🍇', restaurante: '🍽️', comercio: '🛍️', hotel: '🏨', turismo_aventura: '🥾', otro: '📍' };
 
@@ -153,14 +201,14 @@ export default function MapView({ onSelectPlace }) {
     setStatusVisible(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const { latitude, longitude } = pos.coords;
+        const { latitude, longitude, heading } = pos.coords;
         setStatusText(t.found);
         map.setView([latitude, longitude], 15);
-        setUserLocation(map, latitude, longitude);
+        setUserLocation(map, latitude, longitude, heading);
         setTimeout(() => setStatusVisible(false), 1800);
 
         navigator.geolocation.watchPosition(
-          (p) => setUserLocation(map, p.coords.latitude, p.coords.longitude),
+          (p) => setUserLocation(map, p.coords.latitude, p.coords.longitude, p.coords.heading),
           () => {},
           { enableHighAccuracy: true }
         );
@@ -179,7 +227,7 @@ export default function MapView({ onSelectPlace }) {
     );
   }
 
-  function setUserLocation(map, lat, lng) {
+  function setUserLocation(map, lat, lng, heading) {
     if (!userMarkerRef.current) {
       const el = document.createElement('div');
       el.className = 'user-dot';
@@ -188,10 +236,10 @@ export default function MapView({ onSelectPlace }) {
     } else {
       userMarkerRef.current.setLatLng([lat, lng]);
     }
-    checkProximity(lat, lng);
+    checkProximity(lat, lng, heading);
   }
 
-  function checkProximity(lat, lng) {
+  function checkProximity(lat, lng, heading) {
     const places = window.__mendozappPlaces || [];
     const radius = mode === 'walking' ? 150 : 400;
     for (const place of places) {
@@ -199,8 +247,11 @@ export default function MapView({ onSelectPlace }) {
       const d = distMeters(lat, lng, place.lat, place.lng);
       if (d < radius && !visitedProximity.current.has(id)) {
         visitedProximity.current.add(id);
-        setProximityAlert({ place, meters: Math.round(d) });
-        setTimeout(() => setProximityAlert(null), 6000);
+        const bearing = bearingTo(lat, lng, place.lat, place.lng);
+        const direction = relativeDirection(heading, bearing);
+        alertBuzz();
+        setProximityAlert({ place, meters: Math.round(d), direction });
+        setTimeout(() => setProximityAlert(null), 7000);
         break;
       }
     }
@@ -225,7 +276,9 @@ export default function MapView({ onSelectPlace }) {
             {proximityAlert.place.icon}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-[10px] uppercase tracking-wide text-sun font-bold">{t.nearby}</div>
+            <div className="text-[10px] uppercase tracking-wide text-sun font-bold">
+              {proximityAlert.direction ? DIRECTION_LABEL[lang][proximityAlert.direction] : t.nearby}
+            </div>
             <div className="text-sm font-bold truncate">
               {proximityAlert.place._kind === 'poi' ? proximityAlert.place[`nombre_${lang}`] : proximityAlert.place.nombre}
             </div>

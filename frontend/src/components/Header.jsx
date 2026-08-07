@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useLang } from '../i18n/LangContext';
+import { useOnboarding } from '../i18n/OnboardingContext';
 import logo from '../assets/logo.png';
 
 const LANGS = [
@@ -11,6 +12,7 @@ const LANGS = [
 
 export default function Header() {
   const { lang, setLang, t } = useLang();
+  const { show } = useOnboarding();
   const isLoggedIn = !!localStorage.getItem('mendozapp_admin_token');
 
   return (
@@ -35,11 +37,20 @@ export default function Header() {
           ))}
         </div>
 
+        {/* Info: reabre la explicación de la app */}
+        <button
+          onClick={show}
+          title="¿Qué es Mendozapp?"
+          className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-[13px] opacity-70 hover:opacity-100 transition-opacity flex-shrink-0"
+        >
+          ℹ️
+        </button>
+
         {/* Ícono chiquito de acceso admin - discreto, no es un botón grande */}
         <Link
           to={isLoggedIn ? '/admin' : '/admin/login'}
           title={t.admin_login}
-          className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-[13px] opacity-70 hover:opacity-100 transition-opacity"
+          className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-[13px] opacity-70 hover:opacity-100 transition-opacity flex-shrink-0"
         >
           🔑
         </Link>

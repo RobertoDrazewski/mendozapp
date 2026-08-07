@@ -21,6 +21,13 @@ body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #241B1E; }
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* Alto real del bottom nav (contenido + safe area), para reservar espacio
+   como elemento del layout en vez de padding "a ojo" que puede recortarse */
+.bottomnav-space {
+  height: calc(64px + env(safe-area-inset-bottom));
+  flex-shrink: 0;
+}
+
 .leaflet-control-attribution { font-size: 9px !important; }
 
 @keyframes pulse {

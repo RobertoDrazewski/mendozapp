@@ -1,8 +1,10 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { LangProvider } from './i18n/LangContext';
+import { OnboardingProvider } from './i18n/OnboardingContext';
 import BottomNav from './components/BottomNav';
 import ProtectedRoute from './components/ProtectedRoute';
+import OnboardingModal from './components/OnboardingModal';
 
 import Home from './pages/Home';
 import Chat from './pages/Chat';
@@ -37,6 +39,7 @@ function Layout() {
         </Routes>
       </div>
       {!isAdminRoute && <BottomNav />}
+      {!isAdminRoute && <OnboardingModal />}
     </div>
   );
 }
@@ -44,9 +47,11 @@ function Layout() {
 export default function App() {
   return (
     <LangProvider>
-      <BrowserRouter>
-        <Layout />
-      </BrowserRouter>
+      <OnboardingProvider>
+        <BrowserRouter>
+          <Layout />
+        </BrowserRouter>
+      </OnboardingProvider>
     </LangProvider>
   );
 }

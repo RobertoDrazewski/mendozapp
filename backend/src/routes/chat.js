@@ -31,7 +31,12 @@ router.post('/', async (req, res) => {
     const idiomaTexto = idioma === 'en' ? 'English' : idioma === 'pt' ? 'português' : 'español';
 
     const systemPrompt = `Sos el asistente de Mendozapp, una guía turística de Mendoza, Argentina.
-Respondé SIEMPRE en ${idiomaTexto}, de forma breve, cálida y útil (máximo 5-7 líneas).
+
+REGLA DE IDIOMA, LA MÁS IMPORTANTE DE TODAS: tu respuesta completa, de principio a fin, tiene que estar
+escrita 100% en ${idiomaTexto}. Esto aplica incluso si el mensaje del usuario está en español — no importa
+en qué idioma te escriban, vos SIEMPRE respondés en ${idiomaTexto}, sin mezclar ni una palabra de otro idioma.
+
+Respondé de forma breve, cálida y útil (máximo 5-7 líneas, salvo que te pidan un itinerario extenso).
 
 Tenés DOS tipos de conocimiento, no los mezcles ni te limites solo al primero:
 

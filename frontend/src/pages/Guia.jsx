@@ -24,6 +24,15 @@ function labelFor(key, lang) {
   return found ? found.label[lang] : key;
 }
 
+// Refuerzo explícito de idioma: los modelos a veces "arrastran" el idioma del
+// mensaje del usuario aunque el system prompt pida otro. Reforzamos acá con
+// una instrucción final bien directa en el idioma de destino.
+const LANG_ENFORCE = {
+  es: 'Respondé todo el itinerario en español.',
+  en: 'IMPORTANT: Write the entire itinerary in English only. Do not use any Spanish.',
+  pt: 'IMPORTANTE: Escreva o roteiro inteiro em português. Não use espanhol.',
+};
+
 const STORAGE_KEY = 'mendozapp_itinerarios';
 
 function loadHistorial() {
@@ -81,7 +90,7 @@ export default function Guia() {
         : '';
       const mensaje = `Armá un itinerario de ${dias} día(s) en Mendoza (ciudad y provincia) para alguien interesado en: ${
         interesesTexto || 'lo más representativo de la zona'
-      }. Organizalo día por día, con horarios sugeridos.${agrupar} Priorizá los comercios/bodegas reales de Mendozapp cuando existan opciones cargadas, y completá con lugares públicos, miradores o zonas de trekking reales de la provincia cuando haga falta.`;
+      }. Organizalo día por día, con horarios sugeridos.${agrupar} Priorizá los comercios/bodegas reales de Mendozapp cuando existan opciones cargadas, y completá con lugares públicos, miradores o zonas de trekking reales de la provincia cuando haga falta. ${LANG_ENFORCE[lang]}`;
       const { respuesta } = await api.chat({ mensaje, idioma: lang });
 
       // Partimos la respuesta en ítems (por párrafo) para poder tildarlos individualmente
@@ -140,7 +149,7 @@ export default function Guia() {
         <div className="font-display text-xl font-bold text-malbec-deep">{t.guide_title}</div>
         <div className="text-xs text-ink-soft mt-1 mb-5">{t.guide_sub}</div>
 
-        <div className="text-xs font-bold text-ink-soft uppercase tracking-wide mb-2">Días</div>
+        <div className="text-xs font-bold text-ink-soft uppercase tracking-wide mb-2">{t.days_label}</div>
         <div className="flex gap-2 mb-2 overflow-x-auto pb-1">
           {[1, 2, 3, 4, 5, 7, 10, 14].map((d) => (
             <button
@@ -155,7 +164,7 @@ export default function Guia() {
           ))}
         </div>
         <div className="flex items-center gap-2 mb-5">
-          <span className="text-xs text-ink-soft">¿Más días? Escribí la cantidad exacta:</span>
+          <span className="text-xs text-ink-soft">{t.more_days_label}</span>
           <input
             type="number"
             min={1}
@@ -167,13 +176,11 @@ export default function Guia() {
         </div>
         {dias > 6 && (
           <div className="text-xs text-ink-soft mb-5 bg-white rounded-xl p-3 shadow-sm">
-            Para estadías de {dias} días, el itinerario va a agrupar zonas por cercanía (ej: unos días en Ciudad +
-            Godoy Cruz, otros en Maipú, otros en Luján/Valle de Uco) para no cruzar la provincia de un lado a otro
-            cada día.
+            {t.long_stay_note(dias)}
           </div>
         )}
 
-        <div className="text-xs font-bold text-ink-soft uppercase tracking-wide mb-2">Intereses</div>
+        <div className="text-xs font-bold text-ink-soft uppercase tracking-wide mb-2">{t.interests_label}</div>
         <div className="grid grid-cols-3 gap-2.5 mb-6">
           {INTERESES.map((int) => {
             const active = intereses.includes(int.key);
@@ -205,13 +212,13 @@ export default function Guia() {
               style={{ width: `${progress}%` }}
             />
           )}
-          <span className="relative">{loading ? `Generando... ${progress}%` : 'Generar itinerario'}</span>
+          <span className="relative">{loading ? `${t.generating} ${progress}%` : t.generate_itinerary}</span>
         </button>
 
         {/* Historial de itinerarios guardados, con checkboxes de progreso */}
         {historial.length > 0 && (
           <div className="mt-8">
-            <div className="text-xs font-bold text-ink-soft uppercase tracking-wide mb-3">Tus itinerarios</div>
+            <div className="text-xs font-bold text-ink-soft uppercase tracking-wide mb-3">{t.your_itineraries}</div>
             <div className="space-y-4">
               {historial.map((entry) => {
                 const total = entry.lines.length;
@@ -221,12 +228,13 @@ export default function Guia() {
                   { day: 'numeric', month: 'short' }
                 );
                 const interesesTexto = entry.intereses.map((k) => labelFor(k, lang)).join(', ');
+                const diaWord = entry.dias > 1 ? t.days_label_plural : t.day_label;
                 return (
                   <div key={entry.id} className="bg-white rounded-2xl p-4 shadow-sm">
                     <div className="flex items-start justify-between gap-2 mb-3">
                       <div className="min-w-0">
                         <div className="text-sm font-bold">
-                          {entry.dias} día{entry.dias > 1 ? 's' : ''} · {interesesTexto || 'General'}
+                          {entry.dias} {diaWord} · {interesesTexto || t.general_label}
                         </div>
                         <div className="text-[11px] text-ink-soft mt-0.5">{fecha}</div>
                       </div>
@@ -243,7 +251,7 @@ export default function Guia() {
                         <button
                           onClick={() => deleteEntry(entry.id)}
                           className="text-ink-soft/50 hover:text-red-500 text-sm px-1"
-                          title="Eliminar"
+                          title={t.delete_label}
                         >
                           🗑
                         </button>

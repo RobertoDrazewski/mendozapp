@@ -12,13 +12,26 @@ const INTERESES = [
   { key: 'Relax', icon: '🧘' },
 ];
 
+const STORAGE_KEY = 'mendozapp_itinerarios';
+
+function loadHistorial() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+  } catch {
+    return [];
+  }
+}
+function saveHistorial(list) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+}
+
 export default function Guia() {
   const { t, lang } = useLang();
   const [dias, setDias] = useState(2);
   const [intereses, setIntereses] = useState([]);
-  const [itinerario, setItinerario] = useState(null);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [historial, setHistorial] = useState(loadHistorial);
   const progressTimer = useRef(null);
 
   function toggleInteres(i) {
@@ -29,13 +42,12 @@ export default function Guia() {
     setProgress(4);
     progressTimer.current = setInterval(() => {
       setProgress((p) => {
-        if (p >= 90) return p; // se queda esperando cerca del final hasta que la IA responda de verdad
+        if (p >= 90) return p;
         const step = p < 40 ? 6 : p < 70 ? 3 : 1;
         return Math.min(90, p + step);
       });
     }, 220);
   }
-
   function stopFakeProgress(success) {
     clearInterval(progressTimer.current);
     if (success) {
@@ -45,12 +57,10 @@ export default function Guia() {
       setProgress(0);
     }
   }
-
   useEffect(() => () => clearInterval(progressTimer.current), []);
 
   async function generar() {
     setLoading(true);
-    setItinerario(null);
     startFakeProgress();
     try {
       const agrupar = dias > 4
@@ -60,14 +70,54 @@ export default function Guia() {
         intereses.join(', ') || 'lo más representativo de la zona'
       }. Organizalo día por día, con horarios sugeridos.${agrupar} Priorizá los comercios/bodegas reales de Mendozapp cuando existan opciones cargadas, y completá con lugares públicos, miradores o zonas de trekking reales de la provincia cuando haga falta.`;
       const { respuesta } = await api.chat({ mensaje, idioma: lang });
-      setItinerario(respuesta);
+
+      // Partimos la respuesta en ítems (por párrafo) para poder tildarlos individualmente
+      const lines = respuesta.split('\n\n').map((s) => s.trim()).filter(Boolean);
+      const entry = {
+        id: Date.now(),
+        createdAt: new Date().toISOString(),
+        dias,
+        intereses: [...intereses],
+        lines,
+        checked: lines.map(() => false),
+      };
+      const updated = [entry, ...historial].slice(0, 20); // guardamos como máximo los últimos 20
+      setHistorial(updated);
+      saveHistorial(updated);
       stopFakeProgress(true);
     } catch (err) {
-      setItinerario('⚠️ ' + err.message);
+      const entry = {
+        id: Date.now(),
+        createdAt: new Date().toISOString(),
+        dias,
+        intereses: [...intereses],
+        lines: ['⚠️ ' + err.message],
+        checked: [false],
+        error: true,
+      };
+      setHistorial([entry, ...historial].slice(0, 20));
       stopFakeProgress(false);
     } finally {
       setLoading(false);
     }
+  }
+
+  function toggleCheck(entryId, idx) {
+    setHistorial((prev) => {
+      const updated = prev.map((e) =>
+        e.id === entryId ? { ...e, checked: e.checked.map((c, i) => (i === idx ? !c : c)) } : e
+      );
+      saveHistorial(updated);
+      return updated;
+    });
+  }
+
+  function deleteEntry(entryId) {
+    setHistorial((prev) => {
+      const updated = prev.filter((e) => e.id !== entryId);
+      saveHistorial(updated);
+      return updated;
+    });
   }
 
   return (
@@ -110,7 +160,6 @@ export default function Guia() {
           </div>
         )}
 
-        {/* Intereses en grilla de íconos, mismo estilo que las categorías de Lugares */}
         <div className="text-xs font-bold text-ink-soft uppercase tracking-wide mb-2">Intereses</div>
         <div className="grid grid-cols-3 gap-2.5 mb-6">
           {INTERESES.map((int) => {
@@ -146,9 +195,71 @@ export default function Guia() {
           <span className="relative">{loading ? `Generando... ${progress}%` : 'Generar itinerario'}</span>
         </button>
 
-        {itinerario && (
-          <div className="mt-6 bg-white rounded-2xl p-5 shadow-sm text-sm leading-relaxed whitespace-pre-line">
-            {itinerario}
+        {/* Historial de itinerarios guardados, con checkboxes de progreso */}
+        {historial.length > 0 && (
+          <div className="mt-8">
+            <div className="text-xs font-bold text-ink-soft uppercase tracking-wide mb-3">Tus itinerarios</div>
+            <div className="space-y-4">
+              {historial.map((entry) => {
+                const total = entry.lines.length;
+                const done = entry.checked.filter(Boolean).length;
+                const fecha = new Date(entry.createdAt).toLocaleDateString(
+                  lang === 'es' ? 'es-AR' : lang === 'pt' ? 'pt-BR' : 'en-US',
+                  { day: 'numeric', month: 'short' }
+                );
+                return (
+                  <div key={entry.id} className="bg-white rounded-2xl p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-bold">
+                          {entry.dias} día{entry.dias > 1 ? 's' : ''} · {entry.intereses.join(', ') || 'General'}
+                        </div>
+                        <div className="text-[11px] text-ink-soft mt-0.5">{fecha}</div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {!entry.error && (
+                          <span
+                            className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+                              done === total ? 'bg-green-100 text-green-700' : 'bg-stone text-ink-soft'
+                            }`}
+                          >
+                            {done}/{total}
+                          </span>
+                        )}
+                        <button
+                          onClick={() => deleteEntry(entry.id)}
+                          className="text-ink-soft/50 hover:text-red-500 text-sm px-1"
+                          title="Eliminar"
+                        >
+                          🗑
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {entry.lines.map((line, idx) => (
+                        <label
+                          key={idx}
+                          className={`flex items-start gap-2.5 text-sm leading-relaxed p-2 rounded-lg cursor-pointer transition-colors ${
+                            entry.checked[idx] ? 'bg-green-50' : ''
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={entry.checked[idx]}
+                            onChange={() => toggleCheck(entry.id, idx)}
+                            className="mt-1 w-4 h-4 accent-malbec flex-shrink-0"
+                          />
+                          <span className={entry.checked[idx] ? 'line-through text-ink-soft' : 'text-ink'}>
+                            {line}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>

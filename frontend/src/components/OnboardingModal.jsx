@@ -33,7 +33,7 @@ export default function OnboardingModal() {
 
   return (
     <div className="fixed inset-0 z-[3000] bg-black/60 flex items-center justify-center px-5">
-      <div className="w-full max-w-[420px] bg-paper rounded-3xl p-6 max-h-[85vh] overflow-y-auto shadow-2xl">
+      <div className="w-full max-w-[420px] bg-[#F7E3EA] rounded-3xl p-6 max-h-[85vh] overflow-y-auto shadow-2xl">
         <div className="flex flex-col items-center text-center mb-4">
           <img src={logo} alt="Mendozapp" className="h-14 mb-3" />
           <div className="font-display text-xl font-bold text-malbec-deep">{t.onboarding_title}</div>
@@ -44,7 +44,7 @@ export default function OnboardingModal() {
 
         <div className="space-y-3 mb-6">
           {TOOLS.map((tool) => (
-            <div key={tool.key} className="flex items-start gap-3 bg-stone rounded-xl p-3">
+            <div key={tool.key} className="flex items-start gap-3 bg-[#FBEEF2] rounded-xl p-3">
               <span className="text-xl flex-shrink-0">{tool.icon}</span>
               <span className="text-xs text-ink leading-relaxed pt-0.5">{t[tool.key]}</span>
             </div>

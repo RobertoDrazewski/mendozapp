@@ -10,6 +10,13 @@ const INTERESES = [
   { key: 'Gastronomía', icon: '🍽️' },
   { key: 'Familia', icon: '👨‍👩‍👧' },
   { key: 'Relax', icon: '🧘' },
+  { key: 'Clubes y remo', icon: '🚣' },
+  { key: '4x4', icon: '🚙' },
+  { key: 'Mountain bike', icon: '🚵' },
+  { key: 'Motocross / Enduro', icon: '🏍️' },
+  { key: 'Ciclismo', icon: '🚴' },
+  { key: 'Deportes acuáticos', icon: '🏄' },
+  { key: 'Espectáculos', icon: '🎭' },
 ];
 
 const STORAGE_KEY = 'mendozapp_itinerarios';

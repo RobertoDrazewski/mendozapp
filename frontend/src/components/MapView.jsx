@@ -31,6 +31,7 @@ const SATELLITE_LAYER = () =>
 
 export default function MapView({ onSelectPlace }) {
   const { t, lang } = useLang();
+  const mapWrapRef = useRef(null);
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const userMarkerRef = useRef(null);
@@ -47,6 +48,22 @@ export default function MapView({ onSelectPlace }) {
 
   useEffect(() => {
     if (mapInstance.current) return;
+
+    // FIX iOS standalone: en modo "agregado a pantalla de inicio", la cadena de
+    // flex-1/height:100% a veces resuelve en 0px de alto real, aunque visualmente
+    // el resto del layout se vea bien. En vez de confiar en esa cadena CSS, medimos
+    // con JS el espacio disponible real y se lo fijamos en píxeles al div del mapa.
+    function sizeMapContainer() {
+      if (!mapWrapRef.current || !mapRef.current) return;
+      const h = mapWrapRef.current.clientHeight;
+      const w = mapWrapRef.current.clientWidth;
+      if (h > 0) {
+        mapRef.current.style.height = `${h}px`;
+        mapRef.current.style.width = `${w}px`;
+      }
+    }
+    sizeMapContainer();
+
     const map = L.map(mapRef.current, { zoomControl: false }).setView([-32.895, -68.85], 13);
 
     streetsLayerRef.current = STREETS_LAYER().addTo(map);
@@ -68,20 +85,27 @@ export default function MapView({ onSelectPlace }) {
 
     setTimeout(() => {
       const rect = mapRef.current?.getBoundingClientRect();
-      setDebugInfo((prev) => `${prev} | Contenedor: ${Math.round(rect?.width)}x${Math.round(rect?.height)}px`);
+      const wrapRect = mapWrapRef.current?.getBoundingClientRect();
+      setDebugInfo((prev) => `${prev} | Mapa: ${Math.round(rect?.width)}x${Math.round(rect?.height)}px | Wrap: ${Math.round(wrapRect?.width)}x${Math.round(wrapRect?.height)}px`);
     }, 2000);
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     mapInstance.current = map;
 
-    // Salvaguarda: en iOS modo standalone a veces el contenedor arranca con
-    // altura 0 antes de que el navegador resuelva el alto real de pantalla.
-    // Forzamos a Leaflet a recalcular su tamaño una vez que el layout ya asentó.
-    requestAnimationFrame(() => map.invalidateSize());
-    setTimeout(() => map.invalidateSize(), 300);
-    setTimeout(() => map.invalidateSize(), 1000);
+    // Salvaguarda extra: re-medimos y forzamos el tamaño cada vez que el
+    // contenedor padre cambia de tamaño (resize, rotación, o que el layout
+    // termine de asentar tarde en modo standalone).
+    const resizeObserver = new ResizeObserver(() => {
+      sizeMapContainer();
+      map.invalidateSize();
+    });
+    resizeObserver.observe(mapWrapRef.current);
 
-    const handleResize = () => map.invalidateSize();
+    requestAnimationFrame(() => { sizeMapContainer(); map.invalidateSize(); });
+    setTimeout(() => { sizeMapContainer(); map.invalidateSize(); }, 300);
+    setTimeout(() => { sizeMapContainer(); map.invalidateSize(); }, 1000);
+
+    const handleResize = () => { sizeMapContainer(); map.invalidateSize(); };
     window.addEventListener('resize', handleResize);
     window.addEventListener('orientationchange', handleResize);
 
@@ -91,6 +115,7 @@ export default function MapView({ onSelectPlace }) {
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleResize);
+      resizeObserver.disconnect();
       map.remove();
       mapInstance.current = null;
     };
@@ -203,8 +228,9 @@ export default function MapView({ onSelectPlace }) {
   }
 
   return (
-    <div className="relative flex-1 min-h-0">
-      <div ref={mapRef} className="absolute inset-0" />
+    <div ref={mapWrapRef} className="relative flex-1 min-h-0">
+      <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
+
 
       {/* DIAGNÓSTICO TEMPORAL - sacar una vez resuelto el problema del mapa en iOS */}
       <div className="absolute top-16 left-2 right-2 z-[900] bg-black/90 text-lime-300 text-[10px] font-mono p-2 rounded-lg break-words">

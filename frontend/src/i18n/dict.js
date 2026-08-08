@@ -63,6 +63,7 @@ export const dict = {
     cat_mirador: 'Miradores',
     cat_museo: 'Museos',
     cat_emergencia: 'Emergencias',
+    cat_transporte: 'Metrotranvía',
     go_empty: 'No hay lugares cargados todavía.',
     go_empty_category: 'No hay lugares en esta categoría.',
   },
@@ -130,6 +131,7 @@ export const dict = {
     cat_mirador: 'Viewpoints',
     cat_museo: 'Museums',
     cat_emergencia: 'Emergencies',
+    cat_transporte: 'Light Rail',
     go_empty: 'No places loaded yet.',
     go_empty_category: 'No places in this category.',
   },
@@ -197,6 +199,7 @@ export const dict = {
     cat_mirador: 'Mirantes',
     cat_museo: 'Museus',
     cat_emergencia: 'Emergências',
+    cat_transporte: 'Metrotranvía',
     go_empty: 'Ainda não há lugares cadastrados.',
     go_empty_category: 'Não há lugares nesta categoria.',
   }

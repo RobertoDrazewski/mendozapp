@@ -61,7 +61,7 @@ function alertBuzz() {
   }
 }
 
-const ICONS = { monumento: '🗿', plaza: '🌳', historia: '⛪', mirador: '⛰️', museo: '🏛️', iglesia: '⛪', emergencia: '🚨', otro: '📍' };
+const ICONS = { monumento: '🗿', plaza: '🌳', historia: '⛪', mirador: '⛰️', museo: '🏛️', iglesia: '⛪', emergencia: '🚨', transporte: '🚊', otro: '📍' };
 const COMERCIO_ICONS = { bodega: '🍇', restaurante: '🍽️', comercio: '🛍️', hotel: '🏨', turismo_aventura: '🥾', otro: '📍' };
 
 const STREETS_LAYER = () =>

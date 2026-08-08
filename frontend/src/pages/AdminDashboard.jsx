@@ -32,10 +32,10 @@ const EMPTY_BANNER = {
   texto_es: '', texto_en: '', texto_pt: '', link: '', color_fondo: '#6B1E3C', activo: true, orden: 0,
 };
 
-const POI_TIPOS = ['monumento', 'plaza', 'historia', 'mirador', 'museo', 'iglesia', 'emergencia', 'otro'];
+const POI_TIPOS = ['monumento', 'plaza', 'historia', 'mirador', 'museo', 'iglesia', 'emergencia', 'transporte', 'otro'];
 const POI_TIPO_ICON = {
   monumento: '🗿', plaza: '🌳', historia: '⛪', mirador: '⛰️',
-  museo: '🏛️', iglesia: '⛪', emergencia: '🚨', otro: '📍',
+  museo: '🏛️', iglesia: '⛪', emergencia: '🚨', transporte: '🚊', otro: '📍',
 };
 const POI_ICONOS = [
   '📍', '🗿', '🌳', '⛪', '⛰️', '🏛️', '🍷', '🏞️',
@@ -240,6 +240,14 @@ export default function AdminDashboard() {
                 </div>
                 <div className="flex gap-2 mt-2.5">
                   <button onClick={() => openEditComercio(c)} className="flex-1 text-xs font-bold bg-stone text-ink py-2 rounded-lg">Editar</button>
+                  {c.email && (
+                    <a
+                      href={`mailto:${c.email}?subject=${encodeURIComponent('Mendozapp - ' + c.nombre)}`}
+                      className="flex-1 text-xs font-bold bg-blue-50 text-blue-700 py-2 rounded-lg text-center"
+                    >
+                      ✉️ Mail
+                    </a>
+                  )}
                   <button onClick={() => deleteComercio(c.id, c.nombre)} className="flex-1 text-xs font-bold bg-red-50 text-red-600 py-2 rounded-lg">Eliminar</button>
                 </div>
               </div>

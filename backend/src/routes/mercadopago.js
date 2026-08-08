@@ -83,4 +83,63 @@ router.post('/webhook', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/mercadopago/crear-suscripcion
+ * body: { comercio_id, email }
+ *
+ * Crea una "preapproval" (suscripción recurrente) en Mercado Pago por $20.000 ARS/mes,
+ * y devuelve el link (init_point) al que hay que mandar al comerciante para que
+ * autorice el pago. El comercio_id se guarda como external_reference: cuando MP
+ * nos avise por webhook, así sabemos a qué comercio activar.
+ *
+ * IMPORTANTE: esto pega directo a la API real de Mercado Pago con tu MP_ACCESS_TOKEN.
+ * Probalo primero con credenciales de TEST de Mercado Pago antes de usar las de
+ * producción, para no cobrar de verdad mientras estás probando el flujo.
+ */
+router.post('/crear-suscripcion', async (req, res) => {
+  const { comercio_id, email } = req.body;
+  if (!comercio_id || !email) {
+    return res.status(400).json({ error: 'Falta comercio_id o email.' });
+  }
+  if (!process.env.MP_ACCESS_TOKEN) {
+    return res.status(500).json({ error: 'Falta configurar MP_ACCESS_TOKEN en el servidor.' });
+  }
+
+  try {
+    const mpResponse = await fetch('https://api.mercadopago.com/preapproval', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}`,
+      },
+      body: JSON.stringify({
+        reason: 'Suscripción mensual Mendozapp',
+        external_reference: String(comercio_id),
+        payer_email: email,
+        back_url: process.env.FRONTEND_URL || 'https://www.mendozapp.com.ar',
+        auto_recurring: {
+          frequency: 1,
+          frequency_type: 'months',
+          transaction_amount: 20000,
+          currency_id: 'ARS',
+        },
+        status: 'pending',
+      }),
+    });
+
+    const data = await mpResponse.json();
+
+    if (!mpResponse.ok) {
+      console.error('Error de Mercado Pago:', data);
+      return res.status(500).json({ error: data.message || 'Error al crear la suscripción en Mercado Pago.' });
+    }
+
+    // init_point es el link al que mandamos al comerciante para que autorice el pago
+    res.json({ init_point: data.init_point, preapproval_id: data.id });
+  } catch (err) {
+    console.error('Error creando suscripción:', err);
+    res.status(500).json({ error: 'Error al conectar con Mercado Pago.' });
+  }
+});
+
 module.exports = router;

@@ -28,6 +28,7 @@ app.use('/api/banners', bannersRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/mercadopago', mercadopagoRoutes);
 app.use('/api/admin', geocodeRoutes);
+app.use('/api', geocodeRoutes); // expone también /api/geocode-publico (sin login)
 
 // Cron: todos los días a las 8am revisa suscripciones vencidas
 cron.schedule('0 8 * * *', () => {

@@ -105,4 +105,29 @@ router.delete('/admin/:id', requireAdmin, async (req, res) => {
   }
 });
 
+/* ---------- ALTA PÚBLICA (autogestión del comerciante, sin login) ---------- */
+
+// POST /api/comercios/alta -> el comerciante se da de alta solo, queda 'pendiente' hasta que pague
+router.post('/alta', async (req, res) => {
+  const {
+    nombre, tipo, email, telefono, direccion, lat, lng, google_maps_link, foto_url
+  } = req.body;
+
+  if (!nombre || !email || !telefono || !direccion || lat === undefined || lng === undefined) {
+    return res.status(400).json({ error: 'Faltan campos obligatorios: nombre, email, teléfono, dirección y ubicación.' });
+  }
+
+  try {
+    const [result] = await pool.query(
+      `INSERT INTO comercios (nombre, tipo, email, telefono, direccion, lat, lng, google_maps_link, foto_url, estado, plan)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente', 'estandar')`,
+      [nombre, tipo || 'comercio', email, telefono, direccion, lat, lng, google_maps_link || null, foto_url || null]
+    );
+    res.status(201).json({ id: result.insertId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al registrar el comercio.' });
+  }
+});
+
 module.exports = router;

@@ -93,6 +93,15 @@ export default function MapView({ onSelectPlace }) {
   const visitedProximity = useRef(new Set());
   const [proximityAlert, setProximityAlert] = useState(null);
 
+  // Tracking de recorrido: línea trazada + lugares visitados durante el viaje
+  const [tripActive, setTripActive] = useState(false);
+  const [tripSummary, setTripSummary] = useState(null); // se llena al frenar, para mostrar el resumen
+  const tripPolylineRef = useRef(null);
+  const tripPathRef = useRef([]); // [[lat,lng], ...]
+  const tripStartRef = useRef(null);
+  const tripVisitedRef = useRef(new Map()); // id -> { tipo, nombre, kind }
+  const [showTripHistory, setShowTripHistory] = useState(false);
+
   useEffect(() => {
     if (mapInstance.current) return;
 
@@ -236,7 +245,70 @@ export default function MapView({ onSelectPlace }) {
     } else {
       userMarkerRef.current.setLatLng([lat, lng]);
     }
+    if (tripActive) {
+      tripPathRef.current.push([lat, lng]);
+      if (!tripPolylineRef.current) {
+        tripPolylineRef.current = L.polyline(tripPathRef.current, { color: '#6B1E3C', weight: 4, opacity: 0.8 }).addTo(map);
+      } else {
+        tripPolylineRef.current.setLatLngs(tripPathRef.current);
+      }
+    }
     checkProximity(lat, lng, heading);
+  }
+
+  function tripDistanceMeters() {
+    const path = tripPathRef.current;
+    let total = 0;
+    for (let i = 1; i < path.length; i++) {
+      total += distMeters(path[i - 1][0], path[i - 1][1], path[i][0], path[i][1]);
+    }
+    return total;
+  }
+
+  function startTrip() {
+    tripPathRef.current = [];
+    tripVisitedRef.current = new Map();
+    tripStartRef.current = Date.now();
+    if (tripPolylineRef.current) {
+      mapInstance.current.removeLayer(tripPolylineRef.current);
+      tripPolylineRef.current = null;
+    }
+    setTripSummary(null);
+    setTripActive(true);
+  }
+
+  function stopTrip() {
+    setTripActive(false);
+    const durationMs = Date.now() - (tripStartRef.current || Date.now());
+    const distanceKm = tripDistanceMeters() / 1000;
+    const visitados = Array.from(tripVisitedRef.current.values());
+
+    // Agrupamos por tipo para el ranking (monumentos, plazas, museos, bodegas, etc.)
+    const counts = {};
+    visitados.forEach((v) => {
+      const key = v.tipo;
+      counts[key] = (counts[key] || 0) + 1;
+    });
+
+    const summary = {
+      id: Date.now(),
+      fecha: new Date().toISOString(),
+      durationMs,
+      distanceKm,
+      counts,
+      lugares: visitados.map((v) => v.nombre),
+    };
+
+    // Guardamos en el historial local del celular
+    try {
+      const historial = JSON.parse(localStorage.getItem('mendozapp_recorridos')) || [];
+      const updated = [summary, ...historial].slice(0, 30);
+      localStorage.setItem('mendozapp_recorridos', JSON.stringify(updated));
+    } catch (e) {
+      console.error('No se pudo guardar el recorrido:', e);
+    }
+
+    setTripSummary(summary);
   }
 
   function checkProximity(lat, lng, heading) {
@@ -245,13 +317,20 @@ export default function MapView({ onSelectPlace }) {
     for (const place of places) {
       const id = `${place._kind}-${place.id}`;
       const d = distMeters(lat, lng, place.lat, place.lng);
-      if (d < radius && !visitedProximity.current.has(id)) {
-        visitedProximity.current.add(id);
-        const bearing = bearingTo(lat, lng, place.lat, place.lng);
-        const direction = relativeDirection(heading, bearing);
-        alertBuzz();
-        setProximityAlert({ place, meters: Math.round(d), direction });
-        setTimeout(() => setProximityAlert(null), 7000);
+      if (d < radius) {
+        // Si hay un recorrido activo, contamos el lugar para el ranking (una sola vez por viaje)
+        if (tripActive && !tripVisitedRef.current.has(id)) {
+          const nombre = place._kind === 'poi' ? place[`nombre_${lang}`] : place.nombre;
+          tripVisitedRef.current.set(id, { tipo: place.tipo, nombre, kind: place._kind });
+        }
+        if (!visitedProximity.current.has(id)) {
+          visitedProximity.current.add(id);
+          const bearing = bearingTo(lat, lng, place.lat, place.lng);
+          const direction = relativeDirection(heading, bearing);
+          alertBuzz();
+          setProximityAlert({ place, meters: Math.round(d), direction });
+          setTimeout(() => setProximityAlert(null), 7000);
+        }
         break;
       }
     }
@@ -336,6 +415,126 @@ export default function MapView({ onSelectPlace }) {
       >
         {view === 'streets' ? '🛰️' : '🗺️'}
       </button>
+      {/* Iniciar / Detener recorrido */}
+      <button
+        onClick={tripActive ? stopTrip : startTrip}
+        className={`absolute left-3.5 bottom-[184px] z-[800] rounded-full px-4 py-3 shadow-lg text-xs font-bold flex items-center gap-2 ${
+          tripActive ? 'bg-red-600 text-white animate-pulse' : 'bg-malbec text-white'
+        }`}
+      >
+        {tripActive ? '⏹ Detener recorrido' : '▶ Iniciar recorrido'}
+      </button>
+
+      {/* Resumen del recorrido al frenar */}
+      {tripSummary && (
+        <div className="fixed inset-0 z-[2500] bg-black/60 flex items-center justify-center px-5">
+          <div className="w-full max-w-[380px] bg-paper rounded-3xl p-6 shadow-2xl">
+            <div className="text-center mb-4">
+              <div className="text-3xl mb-1">🏆</div>
+              <div className="font-display text-lg font-bold text-malbec-deep">¡Buen recorrido!</div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="bg-stone rounded-xl p-3 text-center">
+                <div className="text-xl font-bold text-malbec">{tripSummary.distanceKm.toFixed(1)} km</div>
+                <div className="text-[10px] text-ink-soft uppercase font-bold">Caminados</div>
+              </div>
+              <div className="bg-stone rounded-xl p-3 text-center">
+                <div className="text-xl font-bold text-malbec">
+                  {Math.floor(tripSummary.durationMs / 60000)} min
+                </div>
+                <div className="text-[10px] text-ink-soft uppercase font-bold">Duración</div>
+              </div>
+            </div>
+            {Object.keys(tripSummary.counts).length > 0 ? (
+              <div className="space-y-2 mb-5">
+                {Object.entries(tripSummary.counts).map(([tipo, count]) => (
+                  <div key={tipo} className="flex items-center justify-between bg-stone rounded-lg px-3 py-2">
+                    <span className="text-sm capitalize">
+                      {ICONS[tipo] || COMERCIO_ICONS[tipo] || '📍'} {tipo}
+                    </span>
+                    <span className="text-sm font-bold text-malbec">{count}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-xs text-ink-soft mb-5">
+                No pasaste cerca de ningún lugar cargado esta vez.
+              </div>
+            )}
+            <button
+              onClick={() => setTripSummary(null)}
+              className="w-full bg-malbec text-white font-bold py-3 rounded-xl text-sm"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+      {/* Ver historial de recorridos pasados */}
+      <button
+        onClick={() => setShowTripHistory(true)}
+        className="absolute right-3.5 bottom-[240px] z-[800] w-11 h-11 rounded-full bg-paper shadow-lg flex items-center justify-center text-lg"
+        title="Mis recorridos"
+      >
+        📊
+      </button>
+
+      {showTripHistory && (
+        <TripHistoryModal onClose={() => setShowTripHistory(false)} />
+      )}
+    </div>
+  );
+}
+
+function TripHistoryModal({ onClose }) {
+  const [historial] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('mendozapp_recorridos')) || [];
+    } catch {
+      return [];
+    }
+  });
+
+  return (
+    <div className="fixed inset-0 z-[2500] bg-black/60 flex items-end justify-center">
+      <div className="w-full max-w-[520px] bg-paper rounded-t-3xl max-h-[80vh] overflow-y-auto p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="font-display text-lg font-bold text-malbec-deep">Tus recorridos</div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-stone flex items-center justify-center">✕</button>
+        </div>
+
+        {historial.length === 0 && (
+          <div className="text-center text-ink-soft text-sm py-8">Todavía no hiciste ningún recorrido.</div>
+        )}
+
+        <div className="space-y-3">
+          {historial.map((r) => {
+            const fecha = new Date(r.fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+            const totalLugares = Object.values(r.counts).reduce((a, b) => a + b, 0);
+            return (
+              <div key={r.id} className="bg-white rounded-2xl p-4 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs text-ink-soft">{fecha}</div>
+                  <div className="text-xs font-bold text-malbec">{totalLugares} lugares</div>
+                </div>
+                <div className="flex gap-4 text-sm">
+                  <span>🚶 {r.distanceKm.toFixed(1)} km</span>
+                  <span>⏱️ {Math.floor(r.durationMs / 60000)} min</span>
+                </div>
+                {Object.keys(r.counts).length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {Object.entries(r.counts).map(([tipo, count]) => (
+                      <span key={tipo} className="text-[11px] bg-stone px-2 py-1 rounded-full font-semibold capitalize">
+                        {tipo} ×{count}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

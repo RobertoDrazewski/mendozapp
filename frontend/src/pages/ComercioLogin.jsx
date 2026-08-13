@@ -42,7 +42,7 @@ export default function ComercioLogin() {
         {/* --- SECCIÓN DE MARKETING (Pitch de por qué sumarse) --- */}
         <div className="w-full max-w-[400px] bg-gradient-to-br from-malbec to-malbec-deep text-white rounded-3xl p-6 shadow-xl mb-6 text-center relative overflow-hidden flex-shrink-0">
           <div className="text-3xl mb-2 relative z-10">🚀</div>
-          <h2 className="font-display text-xl font-bold mb-2 relative z-10">¿Por qué Mendozapp es mejor que Google Maps?</h2>
+          <h2 className="font-display text-xl font-bold mb-2 relative z-10">¿Por qué elegir Mendozapp?</h2>
           <p className="text-xs text-white/90 mb-4 leading-relaxed relative z-10">
             Una guía turística inteligente pensada para llevar clientes reales directamente a tu puerta o WhatsApp.
           </p>

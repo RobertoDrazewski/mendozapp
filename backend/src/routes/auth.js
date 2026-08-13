@@ -21,11 +21,46 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Email o contraseña incorrectos.' });
     }
     const token = jwt.sign(
-      { id: admin.id, email: admin.email, nombre: admin.nombre },
+      { id: admin.id, email: admin.email, nombre: admin.nombre, rol: 'admin' },
       process.env.JWT_SECRET,
       { expiresIn: '12h' }
     );
     res.json({ token, admin: { id: admin.id, email: admin.email, nombre: admin.nombre } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al iniciar sesión.' });
+  }
+});
+
+// POST /api/auth/comercio/login -> login para autogestión de comercios
+router.post('/comercio/login', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Falta email o password.' });
+  }
+  try {
+    const [rows] = await pool.query('SELECT * FROM comercios WHERE email = ?', [email]);
+    if (rows.length === 0) {
+      return res.status(401).json({ error: 'Email o contraseña incorrectos.' });
+    }
+    
+    const comercio = rows[0];
+    if (!comercio.password_hash) {
+      return res.status(401).json({ error: 'Tu cuenta aún no tiene contraseña. Suscribite para activarla.' });
+    }
+
+    const valid = await bcrypt.compare(password, comercio.password_hash);
+    if (!valid) {
+      return res.status(401).json({ error: 'Email o contraseña incorrectos.' });
+    }
+    
+    // Al token le metemos rol: 'comercio' y dura 30 días
+    const token = jwt.sign(
+      { id: comercio.id, email: comercio.email, rol: 'comercio' },
+      process.env.JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+    res.json({ token, comercio: { id: comercio.id, nombre: comercio.nombre, email: comercio.email } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al iniciar sesión.' });

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db/pool');
-const { requireAdmin } = require('../middleware/auth');
+const { requireAdmin, requireComercio } = require('../middleware/auth');
 
 /* ---------- PÚBLICO ---------- */
 
@@ -24,7 +24,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-/* ---------- ADMIN (requiere token) ---------- */
+/* ---------- ADMIN (requiere token de admin) ---------- */
 
 // GET /api/comercios/admin/all -> todos, con estado de suscripción, para el panel
 router.get('/admin/all', requireAdmin, async (req, res) => {
@@ -127,6 +127,53 @@ router.post('/alta', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al registrar el comercio.' });
+  }
+});
+
+/* ---------- AUTOGESTIÓN DE COMERCIOS (requiere token de comercio) ---------- */
+
+// GET /api/comercios/me -> trae los datos del comercio logueado
+router.get('/me', requireComercio, async (req, res) => {
+  try {
+    // Usamos req.comercio.id que viene validado del token JWT
+    const [rows] = await pool.query('SELECT * FROM comercios WHERE id = ?', [req.comercio.id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Comercio no encontrado.' });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener tus datos.' });
+  }
+});
+
+// PUT /api/comercios/me -> el comercio actualiza su propia info
+router.put('/me', requireComercio, async (req, res) => {
+  const fields = req.body;
+  // Lista blanca estricta: NO pueden editar estado, fecha_vencimiento, plan, etc.
+  const allowed = [
+    'descripcion_es', 'descripcion_en', 'descripcion_pt',
+    'direccion', 'lat', 'lng', 'telefono', 'whatsapp', 'sitio_web',
+    'instagram', 'foto_url', 'horario_texto', 'google_maps_link'
+  ];
+  const updates = [];
+  const values = [];
+  
+  for (const key of allowed) {
+    if (fields[key] !== undefined) {
+      updates.push(`${key} = ?`);
+      values.push(fields[key]);
+    }
+  }
+  
+  if (updates.length === 0) return res.status(400).json({ error: 'No hay campos permitidos para actualizar.' });
+  
+  values.push(req.comercio.id);
+  
+  try {
+    await pool.query(`UPDATE comercios SET ${updates.join(', ')} WHERE id = ?`, values);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al actualizar tus datos.' });
   }
 });
 

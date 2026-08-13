@@ -13,13 +13,14 @@ const nodemailer = require('nodemailer');
  */
 
 function getTransporter() {
+  // Ajustado específicamente para el SMTP de Gmail con Contraseña de Aplicación
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: process.env.SMTP_PORT || 587,
-    secure: false,
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: process.env.SMTP_PORT || 465,
+    secure: true, // true para el puerto 465 (exigido por Google)
     auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS
+      user: process.env.SMTP_USER, // infomendozapp@gmail.com
+      pass: process.env.SMTP_PASS  // Tu contraseña de aplicación de 16 letras
     }
   });
 }
@@ -39,7 +40,7 @@ async function checkVencimientos() {
     return;
   }
 
-  const transporter = process.env.SMTP_HOST ? getTransporter() : null;
+  const transporter = process.env.SMTP_USER ? getTransporter() : null;
 
   for (const comercio of vencidos) {
     // Pasar a inactivo -> deja de mostrarse en el mapa
@@ -49,7 +50,7 @@ async function checkVencimientos() {
     if (!comercio.aviso_vencimiento_enviado && comercio.email && transporter) {
       try {
         await transporter.sendMail({
-          from: `"Mendozapp" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+          from: `"Mendozapp" <${process.env.SMTP_USER}>`, // Sale directo de tu Gmail
           to: comercio.email,
           subject: 'Tu suscripción a Mendozapp venció',
           html: `
@@ -75,6 +76,7 @@ async function checkVencimientos() {
      WHERE estado = 'inactivo'
      AND fecha_vencimiento < DATE_SUB(CURDATE(), INTERVAL 15 DAY)`
   );
+  
   for (const c of eliminados) {
     await pool.query(`DELETE FROM comercios WHERE id = ?`, [c.id]);
     console.log(`[cron] Comercio "${c.nombre}" (id ${c.id}) eliminado definitivamente (15+ días sin renovar).`);

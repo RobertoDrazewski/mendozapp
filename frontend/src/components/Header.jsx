@@ -37,6 +37,15 @@ export default function Header() {
           ))}
         </div>
 
+        {/* Botón de contacto por mail */}
+        <a
+          href="mailto:infomendozapp@gmail.com?subject=Contacto%20Mendozapp"
+          title="Contactar por mail"
+          className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-[13px] opacity-70 hover:opacity-100 transition-opacity flex-shrink-0"
+        >
+          ✉️
+        </a>
+
         {/* Info: reabre la explicación de la app */}
         <button
           onClick={show}

@@ -58,6 +58,9 @@ export const api = {
   // Obtiene y actualiza los datos del comercio logueado usando su propio token
   getComercioMe: () => request('/api/comercios/me', {}, 'mendozapp_comercio_token'),
   updateComercioMe: (data) => request('/api/comercios/me', { method: 'PUT', body: JSON.stringify(data) }, 'mendozapp_comercio_token'),
+
+  // Fuerza retraducir la descripción al inglés y portugués
+  traducirComercioMe: () => request('/api/comercios/me/traducir', { method: 'POST' }, 'mendozapp_comercio_token'),
 };
 
 export default API_URL;

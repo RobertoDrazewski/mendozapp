@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db/pool');
 const { requireAdmin, requireComercio } = require('../middleware/auth');
+const { traducirDescripcion } = require('../services/translateService');
 
 /* ---------- PÚBLICO ---------- */
 
@@ -156,24 +157,70 @@ router.put('/me', requireComercio, async (req, res) => {
   ];
   const updates = [];
   const values = [];
-  
+
   for (const key of allowed) {
     if (fields[key] !== undefined) {
       updates.push(`${key} = ?`);
       values.push(fields[key]);
     }
   }
-  
+
   if (updates.length === 0) return res.status(400).json({ error: 'No hay campos permitidos para actualizar.' });
-  
+
   values.push(req.comercio.id);
-  
+
   try {
     await pool.query(`UPDATE comercios SET ${updates.join(', ')} WHERE id = ?`, values);
-    res.json({ ok: true });
+
+    // TRADUCCIÓN AUTOMÁTICA: si cambió la descripción en español, la traducimos a
+    // inglés y portugués. Sin esto, los turistas que usan la app en otro idioma
+    // veían la ficha del comercio sin descripción.
+    let traducida = false;
+    if (fields.descripcion_es !== undefined && fields.descripcion_es?.trim()) {
+      const [prev] = await pool.query(
+        'SELECT descripcion_en, descripcion_pt FROM comercios WHERE id = ?',
+        [req.comercio.id]
+      );
+      // Traducimos si falta alguna, o si el comercio editó el texto español
+      const faltaAlguna = !prev[0]?.descripcion_en || !prev[0]?.descripcion_pt;
+      if (faltaAlguna || fields.forzar_traduccion) {
+        const t = await traducirDescripcion(fields.descripcion_es);
+        if (t) {
+          await pool.query(
+            'UPDATE comercios SET descripcion_en = ?, descripcion_pt = ? WHERE id = ?',
+            [t.en, t.pt, req.comercio.id]
+          );
+          traducida = true;
+        }
+      }
+    }
+
+    res.json({ ok: true, traducida });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al actualizar tus datos.' });
+  }
+});
+
+// POST /api/comercios/me/traducir -> fuerza retraducir la descripción actual
+router.post('/me/traducir', requireComercio, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT descripcion_es FROM comercios WHERE id = ?', [req.comercio.id]);
+    const textoEs = rows[0]?.descripcion_es;
+    if (!textoEs || !textoEs.trim()) {
+      return res.status(400).json({ error: 'Primero escribí y guardá tu descripción en español.' });
+    }
+    const t = await traducirDescripcion(textoEs);
+    if (!t) return res.status(500).json({ error: 'No se pudo traducir en este momento. Probá de nuevo en un rato.' });
+
+    await pool.query(
+      'UPDATE comercios SET descripcion_en = ?, descripcion_pt = ? WHERE id = ?',
+      [t.en, t.pt, req.comercio.id]
+    );
+    res.json({ ok: true, en: t.en, pt: t.pt });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al traducir.' });
   }
 });
 

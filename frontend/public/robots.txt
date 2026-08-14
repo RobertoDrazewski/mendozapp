@@ -7,4 +7,4 @@ Disallow: /admin/login
 Disallow: /comercio/login
 Disallow: /comercio/dashboard
 
-Sitemap: https://www.mendozapp.com.ar/sitemap.xml
+Sitemap: https://mendozapp.com.ar/sitemap.xml

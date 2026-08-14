@@ -90,7 +90,7 @@ async function activarComercio(comercioId, { preapprovalId, payerEmail } = {}) {
           <p>Tu suscripción a Mendozapp ya está activa y tu comercio empezó a mostrarse en el mapa para los turistas.</p>
           <p>Entrá a tu panel para cargar tu descripción, foto, horarios y redes:</p>
           <ul>
-            <li><b>Panel:</b> <a href="https://www.mendozapp.com.ar/comercio/login">mendozapp.com.ar/comercio/login</a></li>
+            <li><b>Panel:</b> <a href="https://mendozapp.com.ar/comercio/login">mendozapp.com.ar/comercio/login</a></li>
             <li><b>Email:</b> ${comercio.email}</li>
             <li><b>Contraseña provisoria:</b> ${passGenerada}</li>
           </ul>
@@ -232,7 +232,7 @@ router.post('/crear-suscripcion', async (req, res) => {
     const tipo = rows[0].tipo;
     const monto = PRECIOS[tipo] ?? PRECIOS.otro;
 
-    const backUrl = `${process.env.FRONTEND_URL || 'https://www.mendozapp.com.ar'}/comercio/login`;
+    const backUrl = `${process.env.FRONTEND_URL || 'https://mendozapp.com.ar'}/comercio/login`;
 
     const mpResponse = await fetch('https://api.mercadopago.com/preapproval', {
       method: 'POST',

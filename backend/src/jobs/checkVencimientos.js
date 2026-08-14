@@ -57,7 +57,7 @@ async function checkVencimientos() {
             <p>Hola,</p>
             <p>La suscripción de <b>${comercio.nombre}</b> en Mendozapp venció y tu comercio dejó de mostrarse en el mapa.</p>
             <p>Para volver a aparecer, podés renovar desde
-            <a href="https://www.mendozapp.com.ar/comercio/alta">mendozapp.com.ar/comercio/alta</a>.</p>
+            <a href="https://mendozapp.com.ar/comercio/alta">mendozapp.com.ar/comercio/alta</a>.</p>
             <p>Si creés que esto es un error y tu pago está al día, respondé este mail y lo revisamos.</p>
             <p>Gracias por haber sido parte de Mendozapp.</p>
           `,

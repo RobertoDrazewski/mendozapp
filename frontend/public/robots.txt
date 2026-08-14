@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+# Zonas privadas: no tiene sentido que Google las indexe
+Disallow: /admin
+Disallow: /admin/login
+Disallow: /comercio/login
+Disallow: /comercio/dashboard
+
+Sitemap: https://www.mendozapp.com.ar/sitemap.xml

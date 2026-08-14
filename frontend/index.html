@@ -4,8 +4,27 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#6B1E3C" />
-  <title>Mendozapp — Guía viva de la ciudad</title>
-  <meta name="description" content="Descubrí Mendoza: bodegas, monumentos, plazas e historia con IA. Gratis para turistas y locales." />
+
+  <title>Mendozapp — Guía turística de Mendoza con mapa e historias</title>
+  <meta name="description" content="Guía turística gratuita de Mendoza: mapa con tu ubicación, bodegas, monumentos, plazas y museos con su historia narrada. Itinerarios y asistente para tu viaje." />
+  <link rel="canonical" href="https://www.mendozapp.com.ar/" />
+  <meta name="robots" content="index, follow" />
+  <meta name="author" content="Puma Code" />
+
+  <!-- Open Graph: cómo se ve al compartir en WhatsApp, Facebook, etc. -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Mendozapp" />
+  <meta property="og:title" content="Mendozapp — Guía turística de Mendoza" />
+  <meta property="og:description" content="Descubrí bodegas, monumentos y plazas de Mendoza con su historia narrada. Gratis, con mapa y tu ubicación en tiempo real." />
+  <meta property="og:url" content="https://www.mendozapp.com.ar/" />
+  <meta property="og:image" content="https://www.mendozapp.com.ar/icon-512-v4.png" />
+  <meta property="og:locale" content="es_AR" />
+
+  <!-- Twitter/X -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Mendozapp — Guía turística de Mendoza" />
+  <meta name="twitter:description" content="Bodegas, monumentos y plazas de Mendoza con su historia narrada. Gratis." />
+  <meta name="twitter:image" content="https://www.mendozapp.com.ar/icon-512-v4.png" />
 
   <!-- Favicon -->
   <link rel="icon" type="image/x-icon" href="/favicon.ico" />
@@ -20,10 +39,56 @@
   <!-- Android / PWA -->
   <link rel="manifest" href="/manifest.json" />
   <meta name="mobile-web-app-capable" content="yes" />
+
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+
+  <!-- Datos estructurados: le explica a Google qué es esto -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Mendozapp",
+    "url": "https://www.mendozapp.com.ar/",
+    "description": "Guía turística gratuita de Mendoza con mapa, geolocalización e historias narradas de bodegas, monumentos, plazas y museos.",
+    "applicationCategory": "TravelApplication",
+    "operatingSystem": "Web",
+    "inLanguage": ["es", "en", "pt"],
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "ARS"
+    },
+    "author": {
+      "@type": "Organization",
+      "name": "Puma Code",
+      "url": "https://puma-code.com"
+    },
+    "about": {
+      "@type": "Place",
+      "name": "Mendoza, Argentina"
+    }
+  }
+  </script>
 </head>
 <body class="bg-stone">
   <div id="root"></div>
+
+  <!--
+    Contenido de respaldo para buscadores y para el primer render.
+    Google ejecuta JavaScript, pero no siempre en la primera pasada: este bloque
+    garantiza que haya texto real describiendo el sitio aunque el bot no llegue a
+    renderizar React. Se oculta apenas la app monta (ver main.jsx / App.jsx).
+  -->
+  <noscript>
+    <h1>Mendozapp — Guía turística de Mendoza</h1>
+    <p>
+      Guía turística gratuita de Mendoza, Argentina. Descubrí bodegas de la Ruta del Vino,
+      monumentos, plazas, museos y miradores con su historia narrada, en español, inglés y portugués.
+      Incluye mapa con tu ubicación en tiempo real, generador de itinerarios y asistente de viaje.
+    </p>
+    <p>Esta aplicación necesita JavaScript para funcionar.</p>
+  </noscript>
+
   <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>

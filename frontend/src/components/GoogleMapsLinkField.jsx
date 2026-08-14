@@ -3,7 +3,14 @@ import { api } from '../api';
 
 /**
  * Campo para pegar un link de Google Maps (corto o largo) y sacar lat/lng exactos.
- * onResolved(lat, lng) se llama cuando el backend logra extraer la coordenada.
+ *
+ * IMPORTANTE: este componente lo usan DOS pantallas distintas:
+ *  - el panel de admin (con token de superadmin en localStorage)
+ *  - el alta pública de comercios (sin ningún token)
+ *
+ * Por eso elige el endpoint según haya o no sesión de admin: /api/admin/geocode
+ * está protegido con requireAdmin y devolvía 401 al comerciante, dejando el alta
+ * completamente bloqueada (el form exige lat/lng para poder enviarse).
  */
 export default function GoogleMapsLinkField({ value, onChange, onResolved, lat, lng }) {
   const [loading, setLoading] = useState(false);
@@ -16,7 +23,10 @@ export default function GoogleMapsLinkField({ value, onChange, onResolved, lat, 
     setError('');
     setOk(false);
     try {
-      const { lat: newLat, lng: newLng } = await api.geocode(value);
+      const esAdmin = !!localStorage.getItem('mendozapp_admin_token');
+      const { lat: newLat, lng: newLng } = esAdmin
+        ? await api.geocode(value)
+        : await api.geocodePublico(value);
       onResolved(newLat, newLng);
       setOk(true);
     } catch (err) {
@@ -35,7 +45,10 @@ export default function GoogleMapsLinkField({ value, onChange, onResolved, lat, 
         <input
           type="text"
           value={value || ''}
-          onChange={(e) => { onChange(e.target.value); setOk(false); }}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setOk(false);
+          }}
           placeholder="https://maps.app.goo.gl/..."
           className="flex-1 bg-stone rounded-lg px-3 py-2.5 text-sm outline-none"
         />
@@ -50,12 +63,14 @@ export default function GoogleMapsLinkField({ value, onChange, onResolved, lat, 
       </div>
       {ok && (
         <div className="text-[11px] text-green-700 mt-1">
-          ✓ Coordenada encontrada: {lat}, {lng}
+          ✓ Ubicación confirmada: {lat}, {lng}
         </div>
       )}
       {error && <div className="text-[11px] text-red-600 mt-1">{error}</div>}
       {!ok && !error && (lat || lng) && (
-        <div className="text-[11px] text-ink-soft mt-1">Coordenada actual: {lat}, {lng}</div>
+        <div className="text-[11px] text-ink-soft mt-1">
+          Coordenada actual: {lat}, {lng}
+        </div>
       )}
     </div>
   );

@@ -40,6 +40,10 @@ export const api = {
 
   geocode: (url) => request('/api/admin/geocode', { method: 'POST', body: JSON.stringify({ url }) }),
 
+  // Geocode SIN login: lo usa el alta pública de comercios (el comerciante no
+  // tiene token de admin, así que /api/admin/geocode le devolvía 401).
+  geocodePublico: (url) => request('/api/geocode-publico', { method: 'POST', body: JSON.stringify({ url }) }),
+
   // ---------- NUEVO: RUTAS DE COMERCIOS (AUTOGESTIÓN Y PAGOS) ----------
   
   // Da de alta el comercio (público, no necesita token)

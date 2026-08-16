@@ -62,6 +62,10 @@ export const api = {
 
   // El comercio genera su propia suscripción desde el panel (usa su token, no un id suelto)
   crearMiSuscripcion: () => request('/api/mercadopago/mi-suscripcion', { method: 'POST' }, 'mendozapp_comercio_token'),
+
+  // Subida de foto: el navegador ya comprimió la imagen a un data URL
+  subirFotoComercio: (dataUrl) => request('/api/comercios/me/foto', { method: 'POST', body: JSON.stringify({ dataUrl }) }, 'mendozapp_comercio_token'),
+  borrarFotoComercio: () => request('/api/comercios/me/foto', { method: 'DELETE' }, 'mendozapp_comercio_token'),
 };
 
 export default API_URL;

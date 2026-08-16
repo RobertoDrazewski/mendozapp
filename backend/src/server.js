@@ -16,7 +16,10 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
-app.use(express.json());
+// Límite de 8 MB: las fotos de comercios viajan como data URL en base64 dentro
+// del JSON. El default de Express es 100 KB, con el que toda subida fallaba con
+// "request entity too large".
+app.use(express.json({ limit: '8mb' }));
 
 app.get('/', (req, res) => res.json({ ok: true, servicio: 'Mendozapp API' }));
 app.get('/health', (req, res) => res.json({ status: 'ok' }));

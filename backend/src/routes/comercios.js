@@ -372,4 +372,98 @@ router.delete('/admin/:id', requireAdmin, async (req, res) => {
   }
 });
 
+
+/* ---------- FOTOS ---------- */
+
+const MAX_FOTO_BYTES = 3 * 1024 * 1024; // 3 MB después de comprimir en el navegador
+const MIMES_OK = ['image/jpeg', 'image/png', 'image/webp'];
+
+/**
+ * URL pública de la foto de un comercio.
+ * Se arma absoluta para que sirva tal cual en <img src>, sin que el frontend
+ * tenga que saber dónde vive la API.
+ */
+function urlFoto(req, comercioId, version) {
+  const base =
+    process.env.API_PUBLIC_URL ||
+    `${req.headers['x-forwarded-proto'] || req.protocol}://${req.get('host')}`;
+  return `${base}/api/comercios/foto/${comercioId}?v=${version || Date.now()}`;
+}
+
+/**
+ * GET /api/comercios/foto/:id  (público)
+ * Devuelve la imagen. Lleva cache largo porque la URL cambia con ?v= cada vez
+ * que el comercio sube una foto nueva.
+ */
+router.get('/foto/:id', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT mime, data FROM comercio_fotos WHERE comercio_id = ?', [req.params.id]);
+    if (rows.length === 0) return res.status(404).send('Sin foto');
+    res.set('Content-Type', rows[0].mime);
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(rows[0].data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error');
+  }
+});
+
+/**
+ * POST /api/comercios/me/foto  (comercio autenticado)
+ * body: { dataUrl: "data:image/jpeg;base64,..." }
+ *
+ * El navegador ya redimensiona y comprime antes de mandar (ver compressImage
+ * en el frontend), así que acá solo validamos tamaño y tipo.
+ */
+router.post('/me/foto', requireComercio, async (req, res) => {
+  const { dataUrl } = req.body;
+  if (!dataUrl || typeof dataUrl !== 'string') {
+    return res.status(400).json({ error: 'No llegó ninguna imagen.' });
+  }
+
+  const match = dataUrl.match(/^data:([\w/+.-]+);base64,(.+)$/);
+  if (!match) return res.status(400).json({ error: 'Formato de imagen inválido.' });
+
+  const mime = match[1];
+  if (!MIMES_OK.includes(mime)) {
+    return res.status(400).json({ error: 'Formato no soportado. Usá JPG, PNG o WEBP.' });
+  }
+
+  const buffer = Buffer.from(match[2], 'base64');
+  if (buffer.length > MAX_FOTO_BYTES) {
+    return res.status(413).json({ error: 'La imagen es demasiado pesada. Probá con una más chica.' });
+  }
+
+  try {
+    await pool.query(
+      `INSERT INTO comercio_fotos (comercio_id, mime, data, bytes)
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE mime = VALUES(mime), data = VALUES(data), bytes = VALUES(bytes)`,
+      [req.comercio.id, mime, buffer, buffer.length]
+    );
+
+    // Guardamos la URL en foto_url para que el mapa, el listado y la ficha la
+    // usen sin ningún cambio: para ellos sigue siendo una URL cualquiera.
+    const url = urlFoto(req, req.comercio.id);
+    await pool.query('UPDATE comercios SET foto_url = ? WHERE id = ?', [url, req.comercio.id]);
+
+    res.json({ ok: true, foto_url: url, bytes: buffer.length });
+  } catch (err) {
+    console.error('Error guardando foto:', err);
+    res.status(500).json({ error: 'No se pudo guardar la imagen.' });
+  }
+});
+
+/** DELETE /api/comercios/me/foto */
+router.delete('/me/foto', requireComercio, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM comercio_fotos WHERE comercio_id = ?', [req.comercio.id]);
+    await pool.query('UPDATE comercios SET foto_url = NULL WHERE id = ?', [req.comercio.id]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo borrar la imagen.' });
+  }
+});
+
 module.exports = router;

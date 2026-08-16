@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import GoogleMapsLinkField from '../components/GoogleMapsLinkField';
+import FotoUploader from '../components/FotoUploader';
 import { api } from '../api';
 
 /**
@@ -84,7 +85,6 @@ export default function ComercioDashboard() {
         whatsapp: comercio.whatsapp,
         sitio_web: comercio.sitio_web,
         instagram: comercio.instagram,
-        foto_url: comercio.foto_url,
         horario_texto: comercio.horario_texto,
         google_maps_link: comercio.google_maps_link,
       });
@@ -289,29 +289,11 @@ export default function ComercioDashboard() {
             </div>
           </div>
 
-          <div>
-            <label className="text-xs font-semibold text-ink-soft">Foto principal</label>
-            <input
-              value={comercio.foto_url || ''}
-              onChange={(e) => setComercio({ ...comercio, foto_url: e.target.value })}
-              placeholder="https://..."
-              className="w-full bg-stone rounded-lg px-3 py-2.5 text-sm mt-1 outline-none"
-            />
-            <p className="text-[11px] text-ink-soft mt-1.5 leading-relaxed">
-              Pegá el <b>link directo</b> a una foto que ya esté publicada en internet. Si no tenés una,
-              podés subirla gratis a <a href="https://postimages.org" target="_blank" rel="noreferrer" className="text-malbec underline">postimages.org</a>{' '}
-              y copiar el "Direct link" que te dan. El link tiene que terminar en .jpg o .png.
-            </p>
-            {comercio.foto_url && (
-              <img
-                src={comercio.foto_url}
-                alt=""
-                className="w-full h-32 object-cover rounded-lg mt-2"
-                onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                onLoad={(e) => { e.currentTarget.style.display = 'block'; }}
-              />
-            )}
-          </div>
+          <FotoUploader
+            fotoUrl={comercio.foto_url}
+            onUploaded={(url) => { setComercio({ ...comercio, foto_url: url }); setSuccess('Foto actualizada.'); }}
+            onDeleted={() => { setComercio({ ...comercio, foto_url: null }); setSuccess('Foto eliminada.'); }}
+          />
 
           <div className="grid grid-cols-2 gap-3">
             <div>

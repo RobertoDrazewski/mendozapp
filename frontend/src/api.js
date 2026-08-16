@@ -28,6 +28,9 @@ export const api = {
   updateComercio: (id, data) => request(`/api/comercios/admin/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteComercio: (id) => request(`/api/comercios/admin/${id}`, { method: 'DELETE' }),
 
+  // Manda desde el SERVIDOR una contraseña nueva al comercio (reemplaza al mailto:)
+  reenviarAcceso: (id) => request(`/api/comercios/admin/${id}/reenviar-acceso`, { method: 'POST' }),
+
   getAllBanners: () => request('/api/banners/admin/all'),
   createBanner: (data) => request('/api/banners/admin', { method: 'POST', body: JSON.stringify(data) }),
   updateBanner: (id, data) => request(`/api/banners/admin/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -39,9 +42,6 @@ export const api = {
   deletePoi: (id) => request(`/api/pois/admin/${id}`, { method: 'DELETE' }),
 
   geocode: (url) => request('/api/admin/geocode', { method: 'POST', body: JSON.stringify({ url }) }),
-
-  // Geocode SIN login: lo usa el alta pública de comercios (el comerciante no
-  // tiene token de admin, así que /api/admin/geocode le devolvía 401).
   geocodePublico: (url) => request('/api/geocode-publico', { method: 'POST', body: JSON.stringify({ url }) }),
 
   // ---------- NUEVO: RUTAS DE COMERCIOS (AUTOGESTIÓN Y PAGOS) ----------
@@ -58,9 +58,10 @@ export const api = {
   // Obtiene y actualiza los datos del comercio logueado usando su propio token
   getComercioMe: () => request('/api/comercios/me', {}, 'mendozapp_comercio_token'),
   updateComercioMe: (data) => request('/api/comercios/me', { method: 'PUT', body: JSON.stringify(data) }, 'mendozapp_comercio_token'),
-
-  // Fuerza retraducir la descripción al inglés y portugués
   traducirComercioMe: () => request('/api/comercios/me/traducir', { method: 'POST' }, 'mendozapp_comercio_token'),
+
+  // El comercio genera su propia suscripción desde el panel (usa su token, no un id suelto)
+  crearMiSuscripcion: () => request('/api/mercadopago/mi-suscripcion', { method: 'POST' }, 'mendozapp_comercio_token'),
 };
 
 export default API_URL;

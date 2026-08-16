@@ -1,31 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db/pool');
-const nodemailer = require('nodemailer');
 const crypto = require('crypto');
-const bcrypt = require('bcryptjs');
+const { generarPassword, hashPassword, mailSuscripcionActiva } = require('../services/emailService');
+const { requireComercio } = require('../middleware/auth');
 
-const PRECIOS = {
-  bodega: 50000,
-  restaurante: 30000,
-  hotel: 30000,
-  turismo_aventura: 30000,
-  comercio: 10000,
-  otro: 10000,
-};
-
-function getTransporter() {
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: Number(process.env.SMTP_PORT) || 465,
-    secure: true,
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-  });
-}
-
-function generarPassword() {
-  return crypto.randomBytes(4).toString('hex').toUpperCase();
-}
+const { precioPara } = require('../config/precios');
 
 async function mpFetch(path) {
   const r = await fetch(`https://api.mercadopago.com${path}`, {
@@ -55,7 +35,7 @@ async function activarComercio(comercioId, { preapprovalId, payerEmail } = {}) {
   let hash = null;
   if (!comercio.password_hash) {
     passGenerada = generarPassword();
-    hash = await bcrypt.hash(passGenerada, 10);
+    hash = await hashPassword(passGenerada);
   }
 
   // Renovamos SIEMPRE desde la fecha de vencimiento vigente si todavía está en el
@@ -77,33 +57,11 @@ async function activarComercio(comercioId, { preapprovalId, payerEmail } = {}) {
 
   console.log(`[MP] Comercio ${comercioId} (${comercio.nombre}) ACTIVO hasta +1 mes.`);
 
-  // Mail de bienvenida: solo la primera vez, y solo si SMTP está configurado
-  if (passGenerada && comercio.email && !comercio.bienvenida_enviada && process.env.SMTP_USER) {
-    try {
-      const transporter = getTransporter();
-      await transporter.sendMail({
-        from: `"Mendozapp" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
-        to: comercio.email,
-        subject: '¡Bienvenido a Mendozapp! Tu suscripción está activa',
-        html: `
-          <h2>¡Hola ${comercio.nombre}!</h2>
-          <p>Tu suscripción a Mendozapp ya está activa y tu comercio empezó a mostrarse en el mapa para los turistas.</p>
-          <p>Entrá a tu panel para cargar tu descripción, foto, horarios y redes:</p>
-          <ul>
-            <li><b>Panel:</b> <a href="https://mendozapp.com.ar/comercio/login">mendozapp.com.ar/comercio/login</a></li>
-            <li><b>Email:</b> ${comercio.email}</li>
-            <li><b>Contraseña provisoria:</b> ${passGenerada}</li>
-          </ul>
-          <p>Te recomendamos completar tu perfil cuanto antes: los comercios con foto y descripción reciben muchas más visitas.</p>
-          <p>¡Gracias por sumarte!</p>
-        `,
-      });
+  // Mail de confirmación. Solo mandamos la contraseña si la acabamos de generar.
+  if (comercio.email && !comercio.bienvenida_enviada) {
+    const enviado = await mailSuscripcionActiva(comercio, passGenerada);
+    if (enviado) {
       await pool.query('UPDATE comercios SET bienvenida_enviada = TRUE WHERE id = ?', [comercioId]);
-      console.log(`[MP] Mail de bienvenida enviado a ${comercio.email}`);
-    } catch (mailErr) {
-      // Importante: si falla el mail NO tiramos el webhook abajo. El comercio ya
-      // quedó activo y pagó; la contraseña se puede reenviar desde el admin.
-      console.error('[MP] Falló el envío del mail de bienvenida:', mailErr.message);
     }
   }
 }
@@ -218,57 +176,89 @@ router.post('/webhook', async (req, res) => {
 });
 
 /**
+ * Crea la suscripción recurrente (preapproval) en Mercado Pago y devuelve el
+ * link al que hay que mandar al comerciante para autorizar el pago.
+ * La comparten el alta pública y el panel del comercio.
+ */
+async function crearPreapproval(comercioId, email, tipo) {
+  if (!process.env.MP_ACCESS_TOKEN) throw new Error('Falta configurar MP_ACCESS_TOKEN en el servidor.');
+
+  const monto = precioPara(tipo);
+  const backUrl = `${process.env.FRONTEND_URL || 'https://mendozapp.com.ar'}/comercio/login`;
+
+  const mpResponse = await fetch('https://api.mercadopago.com/preapproval', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}`,
+    },
+    body: JSON.stringify({
+      reason: `Suscripción Mendozapp - ${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`,
+      external_reference: String(comercioId),
+      payer_email: email,
+      back_url: backUrl,
+      auto_recurring: {
+        frequency: 1,
+        frequency_type: 'months',
+        transaction_amount: monto,
+        currency_id: 'ARS',
+      },
+      status: 'pending',
+    }),
+  });
+
+  const data = await mpResponse.json();
+  if (!mpResponse.ok) {
+    console.error('[MP] Error creando preapproval:', data);
+    throw new Error(data.message || 'Error en Mercado Pago.');
+  }
+
+  // Guardamos el preapproval_id desde ya, así podés rastrear el intento aunque
+  // el comerciante abandone antes de autorizar el pago.
+  await pool.query('UPDATE comercios SET mp_subscription_id = ? WHERE id = ?', [data.id, comercioId]);
+
+  return { init_point: data.init_point, preapproval_id: data.id, monto };
+}
+
+/**
  * POST /api/mercadopago/crear-suscripcion
+ * Endpoint público (lo usa el alta si alguna vez querés cobrar en el alta).
  */
 router.post('/crear-suscripcion', async (req, res) => {
   const { comercio_id, email } = req.body;
   if (!comercio_id || !email) return res.status(400).json({ error: 'Falta comercio_id o email.' });
-  if (!process.env.MP_ACCESS_TOKEN) return res.status(500).json({ error: 'Falta MP_ACCESS_TOKEN.' });
-
   try {
     const [rows] = await pool.query('SELECT tipo FROM comercios WHERE id = ?', [comercio_id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Comercio no encontrado.' });
-
-    const tipo = rows[0].tipo;
-    const monto = PRECIOS[tipo] ?? PRECIOS.otro;
-
-    const backUrl = `${process.env.FRONTEND_URL || 'https://mendozapp.com.ar'}/comercio/login`;
-
-    const mpResponse = await fetch('https://api.mercadopago.com/preapproval', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}`,
-      },
-      body: JSON.stringify({
-        reason: `Suscripción Mendozapp - ${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`,
-        external_reference: String(comercio_id),
-        payer_email: email,
-        back_url: backUrl,
-        auto_recurring: {
-          frequency: 1,
-          frequency_type: 'months',
-          transaction_amount: monto,
-          currency_id: 'ARS',
-        },
-        status: 'pending',
-      }),
-    });
-
-    const data = await mpResponse.json();
-    if (!mpResponse.ok) {
-      console.error('[MP] Error creando preapproval:', data);
-      return res.status(500).json({ error: data.message || 'Error en Mercado Pago.' });
-    }
-
-    // Guardamos el preapproval_id desde ya, así el admin puede rastrear el intento
-    // aunque el comerciante abandone antes de pagar.
-    await pool.query('UPDATE comercios SET mp_subscription_id = ? WHERE id = ?', [data.id, comercio_id]);
-
-    res.json({ init_point: data.init_point, preapproval_id: data.id, monto });
+    const resultado = await crearPreapproval(comercio_id, email, rows[0].tipo);
+    res.json(resultado);
   } catch (err) {
     console.error('Error creando suscripción:', err);
-    res.status(500).json({ error: 'Error al conectar con Mercado Pago.' });
+    res.status(500).json({ error: err.message || 'Error al conectar con Mercado Pago.' });
+  }
+});
+
+/**
+ * POST /api/mercadopago/mi-suscripcion
+ *
+ * Versión autenticada: la usa el comercio desde su propio panel. A diferencia de
+ * /crear-suscripcion, no confía en el comercio_id que venga en el body — lo toma
+ * del token. Así nadie puede generar una suscripción a nombre de otro negocio.
+ */
+router.post('/mi-suscripcion', requireComercio, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT id, nombre, tipo, email, estado FROM comercios WHERE id = ?',
+      [req.comercio.id]
+    );
+    const comercio = rows[0];
+    if (!comercio) return res.status(404).json({ error: 'Comercio no encontrado.' });
+
+    const resultado = await crearPreapproval(comercio.id, comercio.email, comercio.tipo);
+    res.json(resultado);
+  } catch (err) {
+    console.error('Error creando suscripción del comercio:', err);
+    res.status(500).json({ error: err.message || 'Error al conectar con Mercado Pago.' });
   }
 });
 

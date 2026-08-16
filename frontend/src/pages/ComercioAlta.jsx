@@ -10,30 +10,77 @@ export default function ComercioAlta() {
     nombre: '', tipo: 'bodega', email: '', telefono: '', direccion: '', lat: '', lng: '', google_maps_link: ''
   });
   const [loading, setLoading] = useState(false);
+  const [listo, setListo] = useState(false);
+  const [diasPrueba, setDiasPrueba] = useState(30);
   const [error, setError] = useState('');
 
+  /**
+   * El alta ya NO manda directo a Mercado Pago.
+   *
+   * Antes, si el comerciante llegaba al checkout y volvía atrás sin pagar,
+   * quedaba un registro huérfano: invisible en el mapa, sin contraseña y sin
+   * forma de recuperarlo. Ahora arranca con período de prueba gratis: queda
+   * visible enseguida y recibe su acceso por mail. Puede suscribirse cuando
+   * quiera desde su propio panel.
+   */
   async function handleSubmit(e) {
     e.preventDefault();
     if (!form.lat || !form.lng) {
       setError('Por favor usá el botón "Usar link" de Google Maps para obtener tu ubicación exacta.');
       return;
     }
-    
+
     setLoading(true);
     setError('');
     try {
-      // 1. Guardamos el comercio en estado pendiente en la BD
-      const { id } = await api.altaComercio(form);
-      
-      // 2. Generamos la suscripción en Mercado Pago con el precio correcto según el tipo
-      const { init_point } = await api.crearSuscripcionMP(id, form.email);
-      
-      // 3. Redirigimos al usuario a pagar
-      window.location.href = init_point;
+      const { dias_prueba } = await api.altaComercio(form);
+      setDiasPrueba(dias_prueba || 30);
+      setListo(true);
     } catch (err) {
       setError(err.message);
+    } finally {
       setLoading(false);
     }
+  }
+
+  // Pantalla de confirmación: el comercio ya está en el mapa y con su prueba activa
+  if (listo) {
+    return (
+      <div className="h-full flex flex-col bg-stone overflow-y-auto">
+        <Header />
+        <div className="flex-1 flex items-center justify-center px-5 py-8">
+          <div className="w-full max-w-[420px] bg-white rounded-3xl p-6 shadow-sm text-center">
+            <div className="text-4xl mb-3">🎉</div>
+            <div className="font-display text-xl font-bold text-malbec-deep mb-2">
+              ¡Ya estás en el mapa!
+            </div>
+            <p className="text-sm text-ink leading-relaxed mb-4">
+              <b>{form.nombre}</b> ya se muestra a los turistas que usan Mendozapp,
+              con <b>{diasPrueba} días de prueba gratis</b>.
+            </p>
+            <div className="bg-stone rounded-xl p-4 text-left mb-5">
+              <p className="text-xs font-bold text-ink-soft uppercase tracking-wide mb-2">Próximo paso</p>
+              <p className="text-sm text-ink leading-relaxed">
+                Te enviamos un mail a <b>{form.email}</b> con tu contraseña para entrar al panel.
+                Ahí podés cargar tu foto y tu historia — sin eso, los turistas ven tu ficha vacía.
+              </p>
+              <p className="text-xs text-ink-soft mt-2">
+                Si no te llega en unos minutos, revisá la carpeta de spam.
+              </p>
+            </div>
+            <a
+              href="/comercio/login"
+              className="block w-full bg-malbec text-white font-bold py-3.5 rounded-xl text-sm mb-2"
+            >
+              Entrar a mi panel
+            </a>
+            <a href="/" className="block text-xs text-ink-soft py-2">
+              Ver la app
+            </a>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

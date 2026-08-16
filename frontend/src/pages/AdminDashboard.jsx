@@ -7,6 +7,7 @@ import GoogleMapsLinkField from '../components/GoogleMapsLinkField';
 
 const ESTADO_COLOR = {
   activo: 'bg-green-100 text-green-700',
+  prueba: 'bg-blue-100 text-blue-700',
   inactivo: 'bg-gray-200 text-gray-600',
   pendiente: 'bg-yellow-100 text-yellow-700',
   moroso: 'bg-red-100 text-red-700',
@@ -62,6 +63,7 @@ export default function AdminDashboard() {
 
   const [showPoiForm, setShowPoiForm] = useState(false);
   const [expandedCats, setExpandedCats] = useState({});
+  const [enviandoMail, setEnviandoMail] = useState(null);
   const [editingPoi, setEditingPoi] = useState(null);
   const [poiForm, setPoiForm] = useState(EMPTY_POI);
 
@@ -121,6 +123,29 @@ export default function AdminDashboard() {
       setError(err.message);
     }
   }
+  /**
+   * Manda al comercio una contraseña NUEVA por mail, desde el servidor.
+   * Antes esto era un link mailto:, que en Chrome sin cliente de correo
+   * configurado no hacía absolutamente nada al hacerle clic.
+   */
+  async function reenviarAcceso(c) {
+    if (!window.confirm(`Se va a generar una contraseña NUEVA para "${c.nombre}" y se le enviará a ${c.email}. La contraseña anterior deja de funcionar. ¿Continuar?`)) return;
+    setEnviandoMail(c.id);
+    setError('');
+    try {
+      const res = await api.reenviarAcceso(c.id);
+      if (res.ok) {
+        window.alert(`Mail enviado a ${res.email} con la contraseña nueva.`);
+      } else {
+        window.alert(`No se pudo enviar el mail.\n\nContraseña nueva: ${res.password}\n\nPasásela vos por otro medio.`);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setEnviandoMail(null);
+    }
+  }
+
   async function deleteComercio(id, nombre) {
     if (!window.confirm(`¿Eliminar "${nombre}" definitivamente?`)) return;
     try { await api.deleteComercio(id); loadAll(); } catch (err) { setError(err.message); }
@@ -241,12 +266,13 @@ export default function AdminDashboard() {
                 <div className="flex gap-2 mt-2.5">
                   <button onClick={() => openEditComercio(c)} className="flex-1 text-xs font-bold bg-stone text-ink py-2 rounded-lg">Editar</button>
                   {c.email && (
-                    <a
-                      href={`mailto:${c.email}?subject=${encodeURIComponent('Mendozapp - ' + c.nombre)}`}
-                      className="flex-1 text-xs font-bold bg-blue-50 text-blue-700 py-2 rounded-lg text-center"
+                    <button
+                      onClick={() => reenviarAcceso(c)}
+                      disabled={enviandoMail === c.id}
+                      className="flex-1 text-xs font-bold bg-blue-50 text-blue-700 py-2 rounded-lg disabled:opacity-50"
                     >
-                      ✉️ Mail
-                    </a>
+                      {enviandoMail === c.id ? '...' : '✉️ Enviar acceso'}
+                    </button>
                   )}
                   <button onClick={() => deleteComercio(c.id, c.nombre)} className="flex-1 text-xs font-bold bg-red-50 text-red-600 py-2 rounded-lg">Eliminar</button>
                 </div>
@@ -399,6 +425,7 @@ export default function AdminDashboard() {
                 <label className="text-xs font-semibold text-ink-soft">Estado de suscripción</label>
                 <select value={comercioForm.estado} onChange={(e) => setComercioForm({ ...comercioForm, estado: e.target.value })} className="w-full bg-stone rounded-lg px-3 py-2.5 text-sm mt-1">
                   <option value="pendiente">Pendiente</option>
+                  <option value="prueba">En prueba gratis</option>
                   <option value="activo">Activo</option>
                   <option value="inactivo">Inactivo</option>
                   <option value="moroso">Moroso</option>

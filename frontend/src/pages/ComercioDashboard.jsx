@@ -9,6 +9,19 @@ import { api } from '../api';
  * El objetivo es que el comerciante entienda que pagar la suscripción no alcanza:
  * si no carga foto y descripción, su ficha se ve vacía en el mapa.
  */
+const ESTADO_BADGE = {
+  activo: 'bg-green-100 text-green-700',
+  prueba: 'bg-blue-100 text-blue-700',
+  inactivo: 'bg-gray-200 text-gray-600',
+  moroso: 'bg-red-100 text-red-700',
+  pendiente: 'bg-yellow-100 text-yellow-700',
+};
+
+function formatearARS(monto) {
+  if (monto === undefined || monto === null) return '';
+  return `$${Number(monto).toLocaleString('es-AR')}`;
+}
+
 function analizarPerfil(c) {
   const items = [
     { key: 'foto_url', label: 'Foto principal', ok: !!c.foto_url, peso: 30 },
@@ -28,6 +41,7 @@ export default function ComercioDashboard() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [traduciendo, setTraduciendo] = useState(false);
+  const [suscribiendo, setSuscribiendo] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -88,6 +102,23 @@ export default function ComercioDashboard() {
     }
   }
 
+  /**
+   * Genera la suscripción en Mercado Pago y manda al comerciante a autorizarla.
+   * Usa el endpoint autenticado: el backend toma el id del token, así nadie
+   * puede generar una suscripción a nombre de otro negocio.
+   */
+  async function suscribirme() {
+    setSuscribiendo(true);
+    setError('');
+    try {
+      const { init_point } = await api.crearMiSuscripcion();
+      window.location.href = init_point;
+    } catch (err) {
+      setError(err.message);
+      setSuscribiendo(false);
+    }
+  }
+
   async function retraducir() {
     setTraduciendo(true);
     setError('');
@@ -123,20 +154,67 @@ export default function ComercioDashboard() {
 
         <div className="bg-white rounded-2xl p-5 shadow-sm mb-4 border-l-4 border-malbec">
           <div className="text-lg font-bold">{comercio.nombre}</div>
-          <div className="text-xs text-ink-soft capitalize mb-2">{comercio.tipo}</div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-ink-soft">Estado de suscripción:</span>
-            <span
-              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                comercio.estado === 'activo' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-              }`}
-            >
-              {comercio.estado.toUpperCase()}
+          <div className="text-xs text-ink-soft capitalize mb-3">{comercio.tipo}</div>
+
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs font-bold text-ink-soft">Estado:</span>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ESTADO_BADGE[comercio.estado] || 'bg-gray-200 text-gray-700'}`}>
+              {comercio.estado === 'prueba' ? 'PRUEBA GRATIS' : comercio.estado.toUpperCase()}
             </span>
+            {comercio.visible_en_mapa && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                VISIBLE EN EL MAPA
+              </span>
+            )}
           </div>
-          {comercio.estado !== 'activo' && (
-            <div className="mt-3 text-xs text-red-600 font-semibold bg-red-50 p-2 rounded-lg">
-              Tu comercio no se está mostrando en el mapa. Por favor, regularizá tu suscripción.
+
+          {/* En prueba: mostramos cuánto queda y ofrecemos suscribirse */}
+          {comercio.en_prueba && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <div className="text-sm font-bold text-blue-900 mb-1">
+                {comercio.dias_restantes > 0
+                  ? `Te quedan ${comercio.dias_restantes} días de prueba gratis`
+                  : 'Tu prueba gratis termina hoy'}
+              </div>
+              <p className="text-xs text-blue-900 leading-relaxed mb-3">
+                Cuando termine, tu comercio deja de mostrarse en el mapa. Activá tu suscripción
+                para seguir apareciendo, por {formatearARS(comercio.precio_mensual)} por mes.
+                Podés cancelarla cuando quieras desde Mercado Pago.
+              </p>
+              <button
+                onClick={suscribirme}
+                disabled={suscribiendo}
+                className="w-full bg-malbec text-white font-bold py-3 rounded-xl text-sm disabled:opacity-60"
+              >
+                {suscribiendo ? 'Abriendo Mercado Pago…' : `Activar suscripción · ${formatearARS(comercio.precio_mensual)}/mes`}
+              </button>
+            </div>
+          )}
+
+          {/* Suscripción activa */}
+          {comercio.estado === 'activo' && (
+            <div className="text-xs text-green-800 bg-green-50 p-3 rounded-xl">
+              Suscripción activa
+              {comercio.dias_restantes !== null && comercio.dias_restantes >= 0 && (
+                <> · se renueva en {comercio.dias_restantes} días</>
+              )}
+            </div>
+          )}
+
+          {/* Inactivo o moroso: no se muestra, hay que reactivar */}
+          {['inactivo', 'moroso', 'pendiente'].includes(comercio.estado) && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+              <div className="text-sm font-bold text-red-800 mb-1">Tu comercio no se está mostrando</div>
+              <p className="text-xs text-red-800 leading-relaxed mb-3">
+                Activá tu suscripción para volver al mapa por {formatearARS(comercio.precio_mensual)} por mes.
+              </p>
+              <button
+                onClick={suscribirme}
+                disabled={suscribiendo}
+                className="w-full bg-malbec text-white font-bold py-3 rounded-xl text-sm disabled:opacity-60"
+              >
+                {suscribiendo ? 'Abriendo Mercado Pago…' : `Activar suscripción · ${formatearARS(comercio.precio_mensual)}/mes`}
+              </button>
             </div>
           )}
         </div>

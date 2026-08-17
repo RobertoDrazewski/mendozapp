@@ -31,6 +31,10 @@ export const api = {
   // Manda desde el SERVIDOR una contraseña nueva al comercio (reemplaza al mailto:)
   reenviarAcceso: (id) => request(`/api/comercios/admin/${id}/reenviar-acceso`, { method: 'POST' }),
 
+  // Traducción de descripciones desde el panel de admin
+  traducirComercio: (id) => request(`/api/comercios/admin/${id}/traducir`, { method: 'POST' }),
+  traducirPendientes: () => request('/api/comercios/admin/traducir-pendientes', { method: 'POST' }),
+
   getAllBanners: () => request('/api/banners/admin/all'),
   createBanner: (data) => request('/api/banners/admin', { method: 'POST', body: JSON.stringify(data) }),
   updateBanner: (id, data) => request(`/api/banners/admin/${id}`, { method: 'PUT', body: JSON.stringify(data) }),

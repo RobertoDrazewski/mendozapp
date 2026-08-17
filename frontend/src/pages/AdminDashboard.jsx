@@ -64,6 +64,7 @@ export default function AdminDashboard() {
   const [showPoiForm, setShowPoiForm] = useState(false);
   const [expandedCats, setExpandedCats] = useState({});
   const [enviandoMail, setEnviandoMail] = useState(null);
+  const [traduciendo, setTraduciendo] = useState(false);
   const [editingPoi, setEditingPoi] = useState(null);
   const [poiForm, setPoiForm] = useState(EMPTY_POI);
 
@@ -143,6 +144,37 @@ export default function AdminDashboard() {
       setError(err.message);
     } finally {
       setEnviandoMail(null);
+    }
+  }
+
+  /** Retraduce la descripción de UN comercio */
+  async function traducirUno(c) {
+    setTraduciendo(true);
+    setError('');
+    try {
+      await api.traducirComercio(c.id);
+      window.alert(`"${c.nombre}" traducido a inglés y portugués.`);
+      loadAll();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setTraduciendo(false);
+    }
+  }
+
+  /** Traduce todos los que tengan español pero les falte inglés o portugués */
+  async function traducirTodosPendientes() {
+    if (!window.confirm('Se van a traducir todos los comercios que tengan descripción en español pero les falte inglés o portugués. Puede tardar unos segundos. ¿Continuar?')) return;
+    setTraduciendo(true);
+    setError('');
+    try {
+      const res = await api.traducirPendientes();
+      window.alert(`Traducidos ${res.traducidos} de ${res.total} comercios pendientes.`);
+      loadAll();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setTraduciendo(false);
     }
   }
 
@@ -248,6 +280,16 @@ export default function AdminDashboard() {
           <button onClick={openNewComercio} className="w-full bg-sun text-malbec-deep font-bold py-3 rounded-xl text-sm mb-2">
             + Nuevo comercio / bodega (con suscripción)
           </button>
+
+          {comercios.some((c) => c.descripcion_es?.trim() && (!c.descripcion_en?.trim() || !c.descripcion_pt?.trim())) && (
+            <button
+              onClick={traducirTodosPendientes}
+              disabled={traduciendo}
+              className="w-full bg-blue-50 text-blue-700 font-bold py-2.5 rounded-xl text-xs mb-2 disabled:opacity-50"
+            >
+              {traduciendo ? 'Traduciendo…' : '🌐 Traducir descripciones pendientes'}
+            </button>
+          )}
           {comercios.map((c) => (
             <div key={c.id} className="bg-white rounded-2xl p-4 shadow-sm flex gap-3">
               {c.foto_url ? (
@@ -265,6 +307,20 @@ export default function AdminDashboard() {
                 </div>
                 <div className="flex gap-2 mt-2.5">
                   <button onClick={() => openEditComercio(c)} className="flex-1 text-xs font-bold bg-stone text-ink py-2 rounded-lg">Editar</button>
+                  {c.descripcion_es?.trim() && (
+                    <button
+                      onClick={() => traducirUno(c)}
+                      disabled={traduciendo}
+                      title={c.descripcion_en?.trim() && c.descripcion_pt?.trim() ? 'Retraducir' : 'Faltan traducciones'}
+                      className={`flex-1 text-xs font-bold py-2 rounded-lg disabled:opacity-50 ${
+                        c.descripcion_en?.trim() && c.descripcion_pt?.trim()
+                          ? 'bg-stone text-ink-soft'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      🌐 {c.descripcion_en?.trim() && c.descripcion_pt?.trim() ? 'Traducido' : 'Traducir'}
+                    </button>
+                  )}
                   {c.email && (
                     <button
                       onClick={() => reenviarAcceso(c)}

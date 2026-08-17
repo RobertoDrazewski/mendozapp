@@ -21,9 +21,24 @@ export default function PlaceSheet({ place, onClose }) {
   if (!place) return null;
 
   const isComercio = place._kind === 'comercio';
-  const nombre = isComercio ? place.nombre : place[`nombre_${lang}`];
-  const sub = isComercio ? place.direccion : place[`sub_${lang}`];
-  const historia = isComercio ? place[`descripcion_${lang}`] : place[`historia_${lang}`];
+
+  /**
+   * Toma el texto en el idioma activo y, si está vacío, cae al español.
+   *
+   * Sin este respaldo, un turista con la app en inglés veía "este comercio no
+   * cargó su descripción" aunque el texto en español existiera — solo porque la
+   * traducción todavía no se había generado. Mostrar el contenido en otro idioma
+   * es mucho mejor que no mostrar nada.
+   */
+  const conFallback = (prefijo) =>
+    place[`${prefijo}_${lang}`]?.trim() || place[`${prefijo}_es`]?.trim() || '';
+
+  const nombre = isComercio ? place.nombre : conFallback('nombre');
+  const sub = isComercio ? place.direccion : conFallback('sub');
+  const historia = isComercio ? conFallback('descripcion') : conFallback('historia');
+
+  // Si estamos mostrando el español porque falta la traducción, lo avisamos
+  const enOtroIdioma = lang !== 'es' && historia && !place[`${isComercio ? 'descripcion' : 'historia'}_${lang}`]?.trim();
 
   function speak() {
     if (!window.speechSynthesis || !historia) return;
@@ -34,7 +49,10 @@ export default function PlaceSheet({ place, onClose }) {
     }
     window.speechSynthesis.cancel();
     const utter = new SpeechSynthesisUtterance(historia.replace(/\n/g, ' '));
-    utter.lang = lang === 'es' ? 'es-AR' : lang === 'en' ? 'en-US' : 'pt-BR';
+    // Si el texto que estamos leyendo quedó en español por falta de traducción,
+    // usamos voz española: leerlo con voz inglesa suena incomprensible.
+    const idiomaTexto = enOtroIdioma ? 'es' : lang;
+    utter.lang = idiomaTexto === 'es' ? 'es-AR' : idiomaTexto === 'en' ? 'en-US' : 'pt-BR';
     utter.rate = 0.98;
     utter.onend = () => setHablando(false);
     utter.onerror = () => setHablando(false);
@@ -120,6 +138,11 @@ export default function PlaceSheet({ place, onClose }) {
               {historia.split('\n\n').map((p, i) => (
                 <p key={i} className="mb-3">{p}</p>
               ))}
+              {enOtroIdioma && (
+                <div className="text-[11px] text-ink-soft italic mb-2">
+                  Traducción no disponible — mostrando el texto original en español.
+                </div>
+              )}
             </div>
           )}
 

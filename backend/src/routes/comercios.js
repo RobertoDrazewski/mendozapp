@@ -285,6 +285,15 @@ router.post('/admin', requireAdmin, async (req, res) => {
         f.estado || 'pendiente',
       ]
     );
+    // Si el admin cargó descripción en español, la traducimos al instante.
+    // Antes esto solo pasaba cuando guardaba el propio comercio desde su panel,
+    // así que todo lo que cargabas vos quedaba sin versión en inglés ni portugués.
+    if (f.descripcion_es?.trim()) {
+      traducirYGuardar(result.insertId, f.descripcion_es).catch((e) =>
+        console.error('[traducción] falló en alta admin:', e.message)
+      );
+    }
+
     res.status(201).json({ id: result.insertId });
   } catch (err) {
     console.error(err);
@@ -318,7 +327,13 @@ router.put('/admin/:id', requireAdmin, async (req, res) => {
 
   try {
     await pool.query(`UPDATE comercios SET ${updates.join(', ')} WHERE id = ?`, values);
-    res.json({ ok: true });
+
+    let traducida = false;
+    if (fields.descripcion_es?.trim() && fields.descripcion_en === undefined) {
+      traducida = await traducirYGuardar(id, fields.descripcion_es, fields.forzar_traduccion);
+    }
+
+    res.json({ ok: true, traducida });
   } catch (err) {
     console.error('Error actualizando comercio:', err);
     if (err.code === 'ER_DUP_ENTRY') {
@@ -463,6 +478,83 @@ router.delete('/me/foto', requireComercio, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'No se pudo borrar la imagen.' });
+  }
+});
+
+
+/**
+ * Traduce la descripción en español de un comercio y guarda las versiones en
+ * inglés y portugués. Devuelve true si tradujo.
+ *
+ * Solo traduce si falta alguna versión, salvo que se fuerce: así editar el
+ * teléfono de un comercio no gasta una llamada a OpenAI cada vez.
+ */
+async function traducirYGuardar(comercioId, textoEs, forzar = false) {
+  if (!textoEs?.trim()) return false;
+  if (!forzar) {
+    const [prev] = await pool.query(
+      'SELECT descripcion_en, descripcion_pt FROM comercios WHERE id = ?',
+      [comercioId]
+    );
+    const faltaAlguna = !prev[0]?.descripcion_en?.trim() || !prev[0]?.descripcion_pt?.trim();
+    if (!faltaAlguna) return false;
+  }
+  const t = await traducirDescripcion(textoEs);
+  if (!t) return false;
+  await pool.query(
+    'UPDATE comercios SET descripcion_en = ?, descripcion_pt = ? WHERE id = ?',
+    [t.en, t.pt, comercioId]
+  );
+  console.log(`[traducción] Comercio ${comercioId} traducido a EN y PT.`);
+  return true;
+}
+
+/**
+ * POST /api/comercios/admin/:id/traducir  -> fuerza retraducir uno
+ */
+router.post('/admin/:id/traducir', requireAdmin, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT descripcion_es FROM comercios WHERE id = ?', [req.params.id]);
+    const textoEs = rows[0]?.descripcion_es;
+    if (!textoEs?.trim()) return res.status(400).json({ error: 'Este comercio no tiene descripción en español.' });
+
+    const ok = await traducirYGuardar(req.params.id, textoEs, true);
+    if (!ok) return res.status(500).json({ error: 'No se pudo traducir. Revisá que OPENAI_API_KEY esté configurada.' });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al traducir.' });
+  }
+});
+
+/**
+ * POST /api/comercios/admin/traducir-pendientes
+ * Traduce de una todos los comercios que tengan descripción en español pero les
+ * falte inglés o portugués. Útil para poner al día los que ya cargaste antes.
+ */
+router.post('/admin/traducir-pendientes', requireAdmin, async (req, res) => {
+  try {
+    const [pendientes] = await pool.query(
+      `SELECT id, nombre, descripcion_es FROM comercios
+       WHERE descripcion_es IS NOT NULL AND TRIM(descripcion_es) <> ''
+         AND (descripcion_en IS NULL OR TRIM(descripcion_en) = ''
+              OR descripcion_pt IS NULL OR TRIM(descripcion_pt) = '')`
+    );
+
+    const resultados = [];
+    for (const c of pendientes) {
+      const ok = await traducirYGuardar(c.id, c.descripcion_es, true);
+      resultados.push({ id: c.id, nombre: c.nombre, ok });
+    }
+
+    res.json({
+      total: pendientes.length,
+      traducidos: resultados.filter((r) => r.ok).length,
+      detalle: resultados,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al traducir pendientes.' });
   }
 });
 
